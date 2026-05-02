@@ -1,14 +1,32 @@
 /**
  * Almacenamiento persistente — v3.0 Multi-Simulación
+ * Soporta JSON (local) y PostgreSQL (Render).
  */
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { hashPassword } = require('./auth');
 const CONST = require('./constants');
 
+console.log('[storage] Iniciando carga...');
+console.log('[storage] process.env.DATABASE_URL existe?', !!process.env.DATABASE_URL);
+
+let pool = null;
+try {
+  if (process.env.DATABASE_URL) {
+    console.log('[storage] Intentando cargar PostgreSQL...');
+    pool = require('./db');
+    console.log('[storage] pool cargado correctamente');
+  } else {
+    console.log('[storage] No se encontró DATABASE_URL, usando JSON local');
+  }
+} catch(e) {
+  console.log('[storage] Error cargando PostgreSQL:', e.message);
+  console.log('[storage] Usando JSON local como fallback');
+}
+
 const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
 
-// ── Decisión vacía ────────────────────────────────────────────
+// ── Funciones helper (originales) ──────────────────────────
 function defaultDecision(equipoId, equipoNombre, params) {
   const p = params || CONST.PARAMS;
   return {
@@ -30,19 +48,17 @@ function defaultDecision(equipoId, equipoNombre, params) {
   };
 }
 
-// ── Genera ID y código únicos ─────────────────────────────────
 function genSimId()   { return 'sim_' + Date.now().toString(36); }
 function genCodigo()  {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return 'MKT-' + Array.from({length:4}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
 }
 
-// ── Crea una simulación vacía ─────────────────────────────────
 function createSimData(nombre, descripcion='', totalRounds=20, baseParams=null) {
   return {
     nombre, descripcion,
     creadaAt: new Date().toISOString(),
-    estado: 'activa',   // 'activa' | 'archivada'
+    estado: 'activa',
     codigoAcceso: genCodigo(),
     config: { currentRound: 1, totalRounds, roundState: 'pending' },
     parametros:         baseParams?.parametros        || { ...CONST.PARAMS },
@@ -56,7 +72,6 @@ function createSimData(nombre, descripcion='', totalRounds=20, baseParams=null) 
   };
 }
 
-// ── DB raíz vacía ─────────────────────────────────────────────
 function createEmptyDB() {
   const simId = genSimId();
   const sim   = createSimData('Simulación Principal', 'Simulación inicial del sistema');
@@ -71,7 +86,6 @@ function createEmptyDB() {
   };
 }
 
-// ── Migración desde formato v2 (sin simulaciones) ─────────────
 function migrateV2(oldDB) {
   console.log('[storage] Migrando base de datos v2 → v3 (multi-simulación)...');
   const simId = genSimId();
@@ -99,38 +113,76 @@ function migrateV2(oldDB) {
   };
 }
 
-// ── Load / Save ───────────────────────────────────────────────
-function load() {
+// ── Carga/save con PostgreSQL ──────────────────────────────
+async function loadPostgres() {
+  console.log('[storage] loadPostgres: inicio');
+  try {
+    const res = await pool.query('SELECT data FROM simulaciones WHERE id = $1', ['db']);
+    if (res.rows.length > 0) {
+      console.log('[storage] loadPostgres: datos encontrados');
+      return res.rows[0].data;
+    } else {
+      console.log('[storage] loadPostgres: no data, creando db vacía');
+      const empty = createEmptyDB();
+      await pool.query('INSERT INTO simulaciones (id, data) VALUES ($1, $2)', ['db', empty]);
+      return empty;
+    }
+  } catch(e) {
+    console.error('[storage] Error en loadPostgres:', e.message);
+    throw e;
+  }
+}
+
+async function savePostgres(db) {
+  console.log('[storage] savePostgres: guardando datos');
+  try {
+    await pool.query('UPDATE simulaciones SET data = $1 WHERE id = $2', [db, 'db']);
+    console.log('[storage] savePostgres: guardado exitoso');
+  } catch(e) {
+    console.error('[storage] Error en savePostgres:', e.message);
+    throw e;
+  }
+}
+
+// ── Carga/save con JSON (síncrono, pero adaptado a async para interfaz unificada) ──
+function loadJSON() {
   if (!fs.existsSync(DB_PATH)) {
     const dir = path.dirname(DB_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const db = createEmptyDB();
-    save(db);
+    saveJSON(db);
     return db;
   }
   let db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-  // Detectar formato v2 (sin campo simulaciones)
   if (!db.simulaciones) {
     db = migrateV2(db);
-    save(db);
+    saveJSON(db);
   }
-  // Asegurar admin global
   if (!db.admin) {
     db.admin = { id:'admin', nombre:'Administrador', password: hashPassword('admin123'), passwordPlain:'admin123', rol:'admin' };
-    save(db);
+    saveJSON(db);
   }
   return db;
 }
 
-function save(db) {
+function saveJSON(db) {
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
 }
 
-// ── Helpers de simulación ─────────────────────────────────────
-function getSim(db, simId)  { return db.simulaciones[simId] || null; }
-function listSims(db)       { return Object.entries(db.simulaciones).map(([id, s]) => ({ id, ...s })); }
+// ── Exportar funciones asíncronas unificadas ───────────────
+let loadDB, saveDB;
+if (pool) {
+  loadDB = loadPostgres;
+  saveDB = savePostgres;
+} else {
+  loadDB = async () => loadJSON();
+  saveDB = async (db) => saveJSON(db);
+}
 
-function createSim(db, nombre, descripcion='', totalRounds=20, copyFromSimId=null) {
+// ── Funciones originales convertidas a async (pero adaptando llamadas a db) ──
+async function getSim(db, simId) { return db.simulaciones[simId] || null; }
+async function listSims(db) { return Object.entries(db.simulaciones).map(([id, s]) => ({ id, ...s })); }
+async function createSim(db, nombre, descripcion='', totalRounds=20, copyFromSimId=null) {
   const simId = genSimId();
   const base = copyFromSimId ? db.simulaciones[copyFromSimId] : null;
   db.simulaciones[simId] = createSimData(nombre, descripcion, totalRounds,
@@ -141,17 +193,13 @@ function createSim(db, nombre, descripcion='', totalRounds=20, copyFromSimId=nul
   return simId;
 }
 
-// ── Helpers de equipo (dentro de una simulación) ──────────────
-function getEquipos(sim)        { return (sim.users || []).filter(u => u.rol === 'equipo'); }
-function findUserInSim(sim, id) { return (sim.users || []).find(u => u.id === id); }
+async function getEquipos(sim) { return (sim.users || []).filter(u => u.rol === 'equipo'); }
+async function findUserInSim(sim, id) { return (sim.users || []).find(u => u.id === id); }
 
-// Busca un usuario en TODAS las simulaciones (para login)
-function findUserGlobal(db, idOrNombre) {
+async function findUserGlobal(db, idOrNombre) {
   const inp = idOrNombre.trim().toLowerCase();
-  // Admin global
   if (db.admin.id === inp || db.admin.nombre.toLowerCase() === inp)
     return { user: db.admin, simId: null };
-  // Equipos en simulaciones
   for (const [simId, sim] of Object.entries(db.simulaciones)) {
     const u = (sim.users||[]).find(u =>
       u.id.toLowerCase() === inp || u.nombre.toLowerCase() === inp
@@ -161,8 +209,8 @@ function findUserGlobal(db, idOrNombre) {
   return null;
 }
 
-function getRonda(sim, n)    { return sim.rondas[String(n)] || null; }
-function getSimConfig(sim)   {
+async function getRonda(sim, n) { return sim.rondas[String(n)] || null; }
+async function getSimConfig(sim) {
   return {
     params: sim.parametros, tiposProducto: sim.tiposProducto,
     canales: sim.canales, segmentos: sim.segmentos,
@@ -170,7 +218,7 @@ function getSimConfig(sim)   {
   };
 }
 
-function ensureRonda(sim, n) {
+async function ensureRonda(sim, n) {
   const key = String(n);
   if (!sim.rondas[key]) {
     sim.rondas[key] = {
@@ -178,7 +226,8 @@ function ensureRonda(sim, n) {
       ejecutadaAt: null, decisiones: {}, resultados: {},
       mercadoSegmentos: [], atractivoEquipos: {}, dashboard: {},
     };
-    getEquipos(sim).forEach(eq => {
+    const equipos = await getEquipos(sim);
+    for (const eq of equipos) {
       const prev = sim.rondas[String(n-1)];
       if (prev?.decisiones?.[eq.id]) {
         const d = { ...prev.decisiones[eq.id] };
@@ -201,21 +250,22 @@ function ensureRonda(sim, n) {
       } else {
         sim.rondas[key].decisiones[eq.id] = defaultDecision(eq.id, eq.nombre, sim.parametros);
       }
-    });
+    }
   }
   return sim.rondas[key];
 }
 
-function addEquipo(sim, equipo) {
+async function addEquipo(sim, equipo) {
   sim.users.push(equipo);
-  const ronda = ensureRonda(sim, sim.config.currentRound);
+  const ronda = await ensureRonda(sim, sim.config.currentRound);
   if (!ronda.decisiones[equipo.id]) {
     ronda.decisiones[equipo.id] = defaultDecision(equipo.id, equipo.nombre, sim.parametros);
   }
 }
 
 module.exports = {
-  load, save,
+  load: loadDB,
+  save: saveDB,
   getSim, listSims, createSim, genSimId, genCodigo,
   getEquipos, findUserInSim, findUserGlobal,
   getRonda, ensureRonda, addEquipo, defaultDecision, getSimConfig,
