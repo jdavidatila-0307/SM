@@ -101,25 +101,35 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 10px;
+  gap: 20px;
+  margin-bottom: 15px;
   flex-wrap: wrap;
 }
 
-/* Cada logotipo (tamaño pequeño) */
+/* Cada logotipo - 20% más grande que antes (de ~52px a ~62px) */
 .login-logo-img {
-  height: 50px;
+  height: 62px;
   width: auto;
   object-fit: contain;
-  background: white;
-  padding: 4px;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 5px;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
 }
 
-/* Responsive: en móviles aún más pequeño */
+.login-logo-img:hover {
+  transform: scale(1.02);
+}
+
+/* Responsive: en móviles un 20% más grandes también (de 40px a 48px) */
 @media (max-width: 480px) {
   .login-logo-img {
-    height: 35px;
+    height: 48px;
+  }
+  .logos-container {
+    gap: 12px;
+    margin-bottom: 10px;
   }
 }
 
