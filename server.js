@@ -1,26 +1,22 @@
 /**
  * SIMULADOR DE MARKETING v3.0 — Multi-Simulación
- * Sin dependencias externas — Node.js nativo
+ * Con persistencia PostgreSQL (asíncrona) y fallback a JSON.
  */
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const { hashPassword, verifyPassword } = require('./src/auth');
 const storage  = require('./src/storage');
 const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion } = require('./src/engine');
 const { generarReportes } = require('./src/reports');
 
-const PORT    = 3000;
+const PORT = process.env.PORT || 3000;
+console.log('[server] DATABASE_URL definida?', process.env.DATABASE_URL ? 'Sí' : 'No');
 const PUB_DIR = path.join(__dirname, 'public');
 
-let DB = storage.load();
-
-// Asegurar ronda inicial en cada simulación activa
-Object.entries(DB.simulaciones).forEach(([simId, sim]) => {
-  if (sim.estado === 'activa') storage.ensureRonda(sim, sim.config.currentRound);
-});
-storage.save(DB);
+let DB = null; // se llenará asíncronamente
 
 // ── Static MIME ───────────────────────────────────────────────
 const MIME = {
@@ -51,11 +47,41 @@ function send(res, status, data) {
 const ok  = (res, data) => send(res, 200, data);
 const err = (res, s, m) => send(res, s, { error: m });
 
-// ── Route handler ─────────────────────────────────────────────
+// ── Inicialización asíncrona de la base de datos ─────────────
+async function initDB() {
+  DB = await storage.load();
+  // Asegurar ronda inicial en cada simulación activa
+  for (const sim of Object.values(DB.simulaciones)) {
+    if (sim.estado === 'activa') await storage.ensureRonda(sim, sim.config.currentRound);
+  }
+  await storage.save(DB);
+  console.log('[server] Base de datos inicializada correctamente');
+}
+initDB().catch(e => console.error('[server] Error fatal inicializando DB:', e));
+
+// ── Middleware de sesión ─────────────────────────────────────
+function getSession(req) {
+  const raw = req.headers.cookie || '';
+  const sid = raw.split(';').map(c=>c.trim()).find(c=>c.startsWith('sid='));
+  const token = sid ? sid.split('=')[1] : null;
+  return token ? sessions.get(token) : null;
+}
+
+// ── Ruta principal (ya estaba, pero asegurando que DB esté cargada) ──
 async function route(req, res, body) {
+  // Esperar a que DB esté inicializada (si no lo está, reintentar)
+  if (!DB) {
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (DB) { clearInterval(check); resolve(); }
+      }, 100);
+    });
+  }
+
   const url    = req.url.split('?')[0];
   const method = req.method;
-  const s      = req.session;
+  const session = getSession(req);
+  const s = session || null;
 
   const isAdmin  = () => s?.rol === 'admin';
   const isEquipo = () => s?.rol === 'equipo';
@@ -63,7 +89,6 @@ async function route(req, res, body) {
   const needEquipo = () => { if (!s) { err(res,401,'No autenticado'); return true; } if (!isEquipo()) { err(res,403,'Solo para equipos'); return true; } return false; };
   const needAuth   = () => { if (!s) { err(res,401,'No autenticado'); return true; } return false; };
 
-  // Helper: obtener simulación del contexto actual
   const getSimCtx = () => {
     if (s?.rol === 'equipo') return DB.simulaciones[s.simulacionId];
     if (s?.rol === 'admin' && s.simulacionId) return DB.simulaciones[s.simulacionId];
@@ -74,20 +99,21 @@ async function route(req, res, body) {
   if (url === '/auth/login' && method === 'POST') {
     const { id, password } = body;
     if (!id || !password) return err(res, 400, 'Credenciales requeridas');
-    const found = storage.findUserGlobal(DB, id.trim());
+    const found = await storage.findUserGlobal(DB, id.trim());
     if (!found) return err(res, 401, 'Usuario o contraseña incorrectos');
     const { user, simId } = found;
     let lok = false;
     try { lok = verifyPassword(password, user.password); } catch {}
     if (!lok) return err(res, 401, 'Usuario o contraseña incorrectos');
-    const token = require('crypto').randomBytes(32).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, { userId: user.id, rol: user.rol, simulacionId: simId, createdAt: Date.now() });
     res.setHeader('Set-Cookie', `sid=${token}; HttpOnly; Path=/; SameSite=Lax`);
     return ok(res, { ok:true, rol: user.rol, id: user.id, nombre: user.nombre, simulacionId: simId });
   }
 
   if (url === '/auth/logout' && method === 'POST') {
-    if (req._sessionToken) sessions.delete(req._sessionToken);
+    const token = getSession(req)?.token;
+    if (token) sessions.delete(token);
     res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0');
     return ok(res, { ok:true });
   }
@@ -97,15 +123,13 @@ async function route(req, res, body) {
     if (!nombreEquipo?.trim()) return err(res, 400, 'Nombre del equipo requerido');
     if (!password || password.length < 4) return err(res, 400, 'Contraseña de al menos 4 caracteres');
     if (!Array.isArray(miembros) || !miembros.length) return err(res, 400, 'Al menos un integrante');
-    if (!codigoSimulacion?.trim()) return err(res, 400, 'Código de simulación requerido. Solicítalo a tu profesor.');
-    // Buscar simulación por código
+    if (!codigoSimulacion?.trim()) return err(res, 400, 'Código de simulación requerido');
     const codigo = codigoSimulacion.trim().toUpperCase();
     const simEntry = Object.entries(DB.simulaciones).find(([,sim]) =>
       sim.codigoAcceso?.toUpperCase() === codigo && sim.estado === 'activa'
     );
-    if (!simEntry) return err(res, 404, `Código "${codigo}" no corresponde a ninguna simulación activa. Verifica con tu profesor.`);
+    if (!simEntry) return err(res, 404, `Código "${codigo}" no válido`);
     const [simId, sim] = simEntry;
-    // Validar integrantes
     for (let i = 0; i < miembros.length; i++) {
       const m = miembros[i];
       if (!m.apellidoPaterno?.trim()) return err(res, 400, `Integrante ${i+1}: falta Apellido Paterno`);
@@ -114,8 +138,9 @@ async function route(req, res, body) {
       if (!m.nroRegistro?.trim())     return err(res, 400, `Integrante ${i+1}: falta Nro. Registro`);
     }
     const nombreLower = nombreEquipo.trim().toLowerCase();
-    if (storage.getEquipos(sim).some(eq => eq.nombre.toLowerCase() === nombreLower))
-      return err(res, 409, `Ya existe el equipo "${nombreEquipo.trim()}" en esta simulación`);
+    const equipos = await storage.getEquipos(sim);
+    if (equipos.some(eq => eq.nombre.toLowerCase() === nombreLower))
+      return err(res, 409, `Ya existe el equipo "${nombreEquipo.trim()}"`);
     const base = nombreLower.replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
     const id   = `eq_${simId.slice(4)}_${base}_${Date.now().toString(36)}`;
     const equipo = {
@@ -127,9 +152,9 @@ async function route(req, res, body) {
         nombres: m.nombres.trim(), telefono: (m.telefono||'').trim(), nroRegistro: m.nroRegistro.trim()
       }))
     };
-    storage.addEquipo(sim, equipo);
-    storage.save(DB);
-    const token = require('crypto').randomBytes(32).toString('hex');
+    await storage.addEquipo(sim, equipo);
+    await storage.save(DB);
+    const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, { userId: id, rol: 'equipo', simulacionId: simId, createdAt: Date.now() });
     res.setHeader('Set-Cookie', `sid=${token}; HttpOnly; Path=/; SameSite=Lax`);
     return ok(res, { ok:true, id, nombre: equipo.nombre, rol:'equipo', passwordPlain: password,
@@ -147,7 +172,6 @@ async function route(req, res, body) {
       simulacionId: s.simulacionId || null });
   }
 
-  // Validar código de simulación (para campo en registro)
   if (url === '/auth/validar-codigo' && method === 'POST') {
     const { codigo } = body;
     if (!codigo) return err(res, 400, 'Código requerido');
@@ -161,8 +185,9 @@ async function route(req, res, body) {
   // ═══ ADMIN — Gestión de Simulaciones ═════════════════════════
   if (url === '/admin/simulaciones' && method === 'GET') {
     if (needAdmin()) return;
-    return ok(res, storage.listSims(DB).map(sim => {
-      const equipos = storage.getEquipos(sim);
+    const sims = await storage.listSims(DB);
+    const out = await Promise.all(sims.map(async sim => {
+      const equipos = await storage.getEquipos(sim);
       return {
         id: sim.id, nombre: sim.nombre, descripcion: sim.descripcion||'',
         estado: sim.estado, creadaAt: sim.creadaAt,
@@ -172,48 +197,49 @@ async function route(req, res, body) {
         totalEquipos: equipos.length,
       };
     }));
+    return ok(res, out);
   }
 
   if (url === '/admin/simulaciones' && method === 'POST') {
     if (needAdmin()) return;
     const { nombre, descripcion, totalRounds, copyFromSimId } = body;
     if (!nombre?.trim()) return err(res, 400, 'Nombre de simulación requerido');
-    const simId = storage.createSim(DB, nombre.trim(), descripcion||'',
+    const simId = await storage.createSim(DB, nombre.trim(), descripcion||'',
       parseInt(totalRounds)||20, copyFromSimId||null);
-    storage.save(DB);
+    await storage.save(DB);
     return ok(res, { ok:true, simId, codigoAcceso: DB.simulaciones[simId].codigoAcceso });
   }
 
   if (url.match(/^\/admin\/simulaciones\/[^/]+$/) && method === 'PUT') {
     if (needAdmin()) return;
     const simId = url.split('/')[3];
-    const sim = storage.getSim(DB, simId);
+    const sim = await storage.getSim(DB, simId);
     if (!sim) return err(res, 404, 'Simulación no encontrada');
     if (body.nombre)      sim.nombre      = body.nombre.trim();
     if (body.descripcion !== undefined) sim.descripcion = body.descripcion;
     if (body.estado)      sim.estado      = body.estado;
     if (body.codigoAcceso) sim.codigoAcceso = body.codigoAcceso.trim().toUpperCase();
-    storage.save(DB);
+    await storage.save(DB);
     return ok(res, { ok:true });
   }
 
   if (url.match(/^\/admin\/simulaciones\/[^/]+\/archivar$/) && method === 'POST') {
     if (needAdmin()) return;
     const simId = url.split('/')[3];
-    const sim = storage.getSim(DB, simId);
+    const sim = await storage.getSim(DB, simId);
     if (!sim) return err(res, 404, 'Simulación no encontrada');
     sim.estado = 'archivada';
-    storage.save(DB);
+    await storage.save(DB);
     return ok(res, { ok:true });
   }
 
   if (url.match(/^\/admin\/simulaciones\/[^/]+\/activar$/) && method === 'POST') {
     if (needAdmin()) return;
     const simId = url.split('/')[3];
-    const sim = storage.getSim(DB, simId);
+    const sim = await storage.getSim(DB, simId);
     if (!sim) return err(res, 404, 'Simulación no encontrada');
     sim.estado = 'activa';
-    storage.save(DB);
+    await storage.save(DB);
     return ok(res, { ok:true });
   }
 
@@ -222,15 +248,14 @@ async function route(req, res, body) {
     const simId = url.split('/')[3];
     if (!DB.simulaciones[simId]) return err(res, 404, 'No encontrada');
     delete DB.simulaciones[simId];
-    storage.save(DB);
+    await storage.save(DB);
     return ok(res, { ok:true });
   }
 
-  // Admin selecciona simulación activa (guarda en sesión)
   if (url === '/admin/seleccionar-sim' && method === 'POST') {
     if (needAdmin()) return;
     const { simId } = body;
-    const sim = storage.getSim(DB, simId);
+    const sim = await storage.getSim(DB, simId);
     if (!sim) return err(res, 404, 'Simulación no encontrada');
     const sess = sessions.get(req._sessionToken);
     if (sess) sess.simulacionId = simId;
@@ -244,13 +269,15 @@ async function route(req, res, body) {
   if (url === '/admin/equipos' && method === 'GET') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Selecciona una simulación primero');
-    const ronda = storage.getRonda(sim, sim.config.currentRound);
-    return ok(res, storage.getEquipos(sim).map(eq => {
+    const ronda = await storage.getRonda(sim, sim.config.currentRound);
+    const equipos = await storage.getEquipos(sim);
+    const out = equipos.map(eq => {
       const dec = ronda?.decisiones[eq.id];
       return { id:eq.id, nombre:eq.nombre, miembros:eq.miembros||[],
         submitted:dec?.submitted||false, submittedAt:dec?.submittedAt||null,
         registradoAt:eq.registradoAt||null, passwordPlain:eq.passwordPlain||null };
-    }));
+    });
+    return ok(res, out);
   }
 
   if (url === '/admin/equipos' && method === 'POST') {
@@ -260,9 +287,9 @@ async function route(req, res, body) {
     if (!nombre || !password) return err(res, 400, 'Nombre y contraseña requeridos');
     const base = nombre.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
     const id = `eq_${Date.now().toString(36)}_${base}`;
-    storage.addEquipo(sim, { id, nombre, password:hashPassword(password), passwordPlain:password,
+    await storage.addEquipo(sim, { id, nombre, password:hashPassword(password), passwordPlain:password,
       rol:'equipo', miembros: Array.isArray(miembros)?miembros:[] });
-    storage.save(DB);
+    await storage.save(DB);
     return ok(res, { ok:true, id, nombre });
   }
 
@@ -270,23 +297,25 @@ async function route(req, res, body) {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const eqId = url.split('/')[3];
-    const ronda = storage.getRonda(sim, sim.config.currentRound);
+    const ronda = await storage.getRonda(sim, sim.config.currentRound);
     if (!ronda) return err(res, 400, 'Sin ronda');
     if (sim.config.roundState === 'simulated') return err(res, 400, 'Ya simulada');
     const dec = ronda.decisiones[eqId];
     if (!dec) return err(res, 404, 'Sin decisiones');
     dec.submitted = false; dec.submittedAt = null;
-    storage.save(DB); return ok(res, { ok:true });
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url.match(/^\/admin\/equipos\/[^/]+\/password$/) && method === 'PUT') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const eqId = url.split('/')[3];
-    const u = storage.findUserInSim(sim, eqId);
+    const u = await storage.findUserInSim(sim, eqId);
     if (!u) return err(res, 404, 'No encontrado');
     u.password = hashPassword(body.password); u.passwordPlain = body.password;
-    storage.save(DB); return ok(res, { ok:true });
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url.match(/^\/admin\/equipos\/[^/]+$/) && method === 'DELETE') {
@@ -295,7 +324,9 @@ async function route(req, res, body) {
     const eqId = url.split('/')[3];
     const idx = sim.users.findIndex(u => u.id === eqId && u.rol === 'equipo');
     if (idx === -1) return err(res, 404, 'No encontrado');
-    sim.users.splice(idx, 1); storage.save(DB); return ok(res, { ok:true });
+    sim.users.splice(idx, 1);
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   // ─── ADMIN — Rondas ───────────────────────────────────────────
@@ -303,8 +334,8 @@ async function route(req, res, body) {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Selecciona una simulación primero');
     const cfg = sim.config;
-    const ronda = storage.getRonda(sim, cfg.currentRound);
-    const equipos = storage.getEquipos(sim);
+    const ronda = await storage.getRonda(sim, cfg.currentRound);
+    const equipos = await storage.getEquipos(sim);
     const enviados = ronda ? equipos.filter(eq => ronda.decisiones[eq.id]?.submitted).length : 0;
     return ok(res, { currentRound:cfg.currentRound, totalRounds:cfg.totalRounds,
       roundState:cfg.roundState, total:equipos.length, enviados,
@@ -316,37 +347,40 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     if (sim.config.roundState !== 'pending') return err(res, 400, 'No está pendiente');
     sim.config.roundState = 'open';
-    const ronda = storage.getRonda(sim, sim.config.currentRound);
+    const ronda = await storage.getRonda(sim, sim.config.currentRound);
     if (ronda) ronda.estado = 'open';
-    storage.save(DB); return ok(res, { ok:true, currentRound: sim.config.currentRound });
+    await storage.save(DB);
+    return ok(res, { ok:true, currentRound: sim.config.currentRound });
   }
 
   if (url === '/admin/ronda/cerrar' && method === 'POST') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     if (sim.config.roundState !== 'open') return err(res, 400, 'No está abierta');
-    sim.config.roundState = 'locked'; storage.save(DB); return ok(res, { ok:true });
+    sim.config.roundState = 'locked';
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/admin/ronda/pre-simular' && method === 'POST') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const n = sim.config.currentRound;
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda) return err(res, 400, 'Sin ronda');
     if (!['open','locked'].includes(sim.config.roundState)) return err(res, 400, 'Estado incorrecto');
     if (ronda.estado === 'simulated') return err(res, 400, 'Ya simulada');
-    const equipos = storage.getEquipos(sim);
+    const equipos = await storage.getEquipos(sim);
     const decisiones = equipos.filter(eq => ronda.decisiones[eq.id]).map(eq => ({...ronda.decisiones[eq.id]}));
     if (!decisiones.length) return err(res, 400, 'Sin decisiones');
     try {
-      const simCfg = storage.getSimConfig(sim);
+      const simCfg = await storage.getSimConfig(sim);
       const preResult = calcularPreSimulacion(decisiones, simCfg);
       ronda.preSimulacion = {};
       preResult.resultado.forEach(r => { ronda.preSimulacion[r.equipo] = { ...r, confirmado: false }; });
       ronda.preSimMercado = preResult.mercadoSegmentos;
       sim.config.roundState = 'pre-sim';
-      storage.save(DB);
+      await storage.save(DB);
       return ok(res, { ok:true, equiposCalculados: preResult.resultado.length, detalle: preResult.resultado });
     } catch(e) { return err(res, 500, e.message); }
   }
@@ -355,11 +389,12 @@ async function route(req, res, body) {
     if (needAuth()) return;
     if (!sim) return err(res, 404, 'Sin simulación');
     const n = sim.config.currentRound;
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda?.preSimulacion) return err(res, 404, 'Sin datos de pre-simulación');
     if (s.rol === 'admin') {
       const eqMap = {};
-      storage.getEquipos(sim).forEach(eq => { eqMap[eq.id] = eq.nombre; });
+      const equipos = await storage.getEquipos(sim);
+      equipos.forEach(eq => { eqMap[eq.id] = eq.nombre; });
       const detalle = Object.values(ronda.preSimulacion).map(r => ({...r, equipoNombre: eqMap[r.equipo]||r.equipo}));
       return ok(res, { roundState: sim.config.roundState, total: detalle.length,
         confirmados: detalle.filter(r=>r.confirmado).length, detalle, mercadoSegmentos: ronda.preSimMercado||[] });
@@ -373,43 +408,46 @@ async function route(req, res, body) {
   if (url === '/api/presim/confirmar' && method === 'POST') {
     if (needEquipo()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
-    const ronda = storage.getRonda(sim, sim.config.currentRound);
+    const ronda = await storage.getRonda(sim, sim.config.currentRound);
     if (!ronda?.preSimulacion) return err(res, 400, 'Sin pre-simulación activa');
     if (sim.config.roundState !== 'pre-sim') return err(res, 400, 'No hay pre-simulación activa');
     if (!ronda.preSimulacion[s.userId]) return err(res, 404, 'Sin datos para tu equipo');
     ronda.preSimulacion[s.userId].confirmado = true;
     ronda.preSimulacion[s.userId].confirmadoAt = new Date().toISOString();
-    storage.save(DB); return ok(res, { ok:true });
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url.match(/^\/admin\/presim\/forzar\/[^/]+$/) && method === 'POST') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const eqId = url.split('/')[4];
-    const ronda = storage.getRonda(sim, sim.config.currentRound);
+    const ronda = await storage.getRonda(sim, sim.config.currentRound);
     if (!ronda?.preSimulacion?.[eqId]) return err(res, 404, 'Equipo no encontrado');
     ronda.preSimulacion[eqId].confirmado = true;
     ronda.preSimulacion[eqId].forzadoPor = 'admin';
     ronda.preSimulacion[eqId].confirmadoAt = new Date().toISOString();
-    storage.save(DB); return ok(res, { ok:true });
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/admin/presim/forzar-todos' && method === 'POST') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
-    const ronda = storage.getRonda(sim, sim.config.currentRound);
+    const ronda = await storage.getRonda(sim, sim.config.currentRound);
     if (!ronda?.preSimulacion) return err(res, 400, 'Sin pre-simulación activa');
-    Object.values(ronda.preSimulacion).forEach(r => {
+    for (const r of Object.values(ronda.preSimulacion)) {
       if (!r.confirmado) { r.confirmado = true; r.forzadoPor = 'admin'; r.confirmadoAt = new Date().toISOString(); }
-    });
-    storage.save(DB); return ok(res, { ok:true });
+    }
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/admin/simular' && method === 'POST') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const n = sim.config.currentRound;
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda) return err(res, 400, 'Sin ronda');
     if (ronda.estado === 'simulated') return err(res, 400, 'Ya simulada');
     if (!['open','locked','pre-sim'].includes(sim.config.roundState)) return err(res, 400, 'Estado incorrecto');
@@ -417,12 +455,12 @@ async function route(req, res, body) {
       const pendientes = Object.values(ronda.preSimulacion||{}).filter(r => !r.confirmado);
       if (pendientes.length > 0) return err(res, 400, `Faltan ${pendientes.length} equipo(s) por confirmar.`);
     }
-    const equipos = storage.getEquipos(sim);
+    const equipos = await storage.getEquipos(sim);
     if (!equipos.length) return err(res, 400, 'Sin equipos');
     const decisiones = equipos.filter(eq => ronda.decisiones[eq.id]).map(eq => ({...ronda.decisiones[eq.id]}));
     if (!decisiones.length) return err(res, 400, 'Sin decisiones');
     try {
-      const simCfg = storage.getSimConfig(sim);
+      const simCfg = await storage.getSimConfig(sim);
       const result = ejecutarSimulador(decisiones, simCfg);
       ronda.estado = 'simulated'; ronda.ejecutadaAt = new Date().toISOString();
       ronda.mercadoSegmentos = result.mercadoSegmentos;
@@ -430,11 +468,11 @@ async function route(req, res, body) {
       ronda.dashboard = result.dashboard;
       result.resultados.forEach(r => { ronda.resultados[r.equipo] = r; });
       ronda.reportes = {};
-      decisiones.forEach(d => {
+      for (const d of decisiones) {
         ronda.reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, ronda.resultados, simCfg);
-      });
+      }
       sim.config.roundState = 'simulated';
-      storage.save(DB);
+      await storage.save(DB);
       return ok(res, { ok:true, ronda: n, equiposSimulados: decisiones.length });
     } catch(e) { return err(res, 500, e.message); }
   }
@@ -446,7 +484,8 @@ async function route(req, res, body) {
     const next = sim.config.currentRound + 1;
     if (next > sim.config.totalRounds) return err(res, 400, 'Todas las rondas completadas');
     sim.config.currentRound = next; sim.config.roundState = 'pending';
-    storage.ensureRonda(sim, next); storage.save(DB);
+    await storage.ensureRonda(sim, next);
+    await storage.save(DB);
     return ok(res, { ok:true, currentRound: next });
   }
 
@@ -454,10 +493,11 @@ async function route(req, res, body) {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const n = parseInt(url.split('/')[3]);
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda || ronda.estado !== 'simulated') return err(res, 404, 'Sin resultados');
+    const equipos = await storage.getEquipos(sim);
     const eqMap = {};
-    storage.getEquipos(sim).forEach(eq => { eqMap[eq.id] = eq.nombre; });
+    equipos.forEach(eq => { eqMap[eq.id] = eq.nombre; });
     const resultados = Object.values(ronda.resultados).map(r => ({...r, equipoNombre: eqMap[r.equipo]||r.equipo}));
     return ok(res, { ronda: n, estado: ronda.estado, ejecutadaAt: ronda.ejecutadaAt,
       resultados, mercadoSegmentos: ronda.mercadoSegmentos, dashboard: ronda.dashboard });
@@ -468,11 +508,11 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const hist = [];
     for (let i = 1; i <= sim.config.currentRound; i++) {
-      const r = storage.getRonda(sim, i);
+      const r = await storage.getRonda(sim, i);
       if (!r) continue;
-      const eq = storage.getEquipos(sim);
+      const equipos = await storage.getEquipos(sim);
       hist.push({ ronda:i, estado:r.estado, ejecutadaAt:r.ejecutadaAt,
-        enviados: eq.filter(e => r.decisiones[e.id]?.submitted).length, total: eq.length });
+        enviados: equipos.filter(e => r.decisiones[e.id]?.submitted).length, total: equipos.length });
     }
     return ok(res, hist);
   }
@@ -494,10 +534,11 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const { parametros } = body;
     if (!parametros) return err(res, 400, 'Datos requeridos');
-    Object.keys(sim.parametros).forEach(k => {
+    for (const k of Object.keys(sim.parametros)) {
       if (parametros[k] !== undefined && typeof parametros[k] === 'number') sim.parametros[k] = parametros[k];
-    });
-    storage.save(DB); return ok(res, { ok:true });
+    }
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/admin/tiposproducto' && method === 'PUT') {
@@ -505,10 +546,11 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const { tiposProducto } = body;
     if (!tiposProducto) return err(res, 400, 'Datos requeridos');
-    Object.keys(sim.tiposProducto).forEach(k => {
+    for (const k of Object.keys(sim.tiposProducto)) {
       if (tiposProducto[k]?.costoBase !== undefined) sim.tiposProducto[k].costoBase = +tiposProducto[k].costoBase;
-    });
-    storage.save(DB); return ok(res, { ok:true });
+    }
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/admin/canales' && method === 'PUT') {
@@ -516,52 +558,75 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const { canales } = body;
     if (!canales) return err(res, 400, 'Datos requeridos');
-    Object.keys(sim.canales).forEach(k => {
-      if (!canales[k]) return;
-      ['costoAdicionalUnitario','comisionPct','factorImpactoVendedores','bonoAtractivo'].forEach(f => {
+    for (const k of Object.keys(sim.canales)) {
+      if (!canales[k]) continue;
+      for (const f of ['costoAdicionalUnitario','comisionPct','factorImpactoVendedores','bonoAtractivo']) {
         if (canales[k][f] !== undefined) sim.canales[k][f] = +canales[k][f];
-      });
-    });
-    storage.save(DB); return ok(res, { ok:true });
+      }
+    }
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
-  if (url === '/admin/segmentos' && method === 'GET') { if (needAdmin()) return; if (!sim) return err(res,400,'Sin sim'); return ok(res, sim.segmentos); }
+  if (url === '/admin/segmentos' && method === 'GET') {
+    if (needAdmin()) return;
+    if (!sim) return err(res, 400, 'Sin simulación');
+    return ok(res, sim.segmentos);
+  }
   if (url === '/admin/segmentos' && method === 'PUT') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const { segmentos } = body;
     if (!Array.isArray(segmentos)) return err(res, 400, 'Array requerido');
     sim.segmentos = segmentos.map(s => ({
-      nombre: String(s.nombre||'').trim(), demandaBase: +s.demandaBase,
-      pctContrabando: +s.pctContrabando, indiceExterno: +s.indiceExterno,
-      tendencia: String(s.tendencia||''), descripcion: String(s.descripcion||''),
+      nombre: String(s.nombre||'').trim(),
+      demandaBase: +s.demandaBase,
+      pctContrabando: +s.pctContrabando,
+      indiceExterno: +s.indiceExterno,
+      tendencia: String(s.tendencia||''),
+      descripcion: String(s.descripcion||''),
     }));
-    storage.save(DB); return ok(res, { ok:true });
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
-  if (url === '/admin/afinidad' && method === 'GET') { if (needAdmin()) return; if (!sim) return err(res,400,'Sin sim'); return ok(res, sim.afinidadMatrix); }
+  if (url === '/admin/afinidad' && method === 'GET') {
+    if (needAdmin()) return;
+    if (!sim) return err(res, 400, 'Sin simulación');
+    return ok(res, sim.afinidadMatrix);
+  }
   if (url === '/admin/afinidad' && method === 'PUT') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const { afinidadMatrix } = body;
     if (!afinidadMatrix) return err(res, 400, 'Datos requeridos');
-    Object.keys(sim.afinidadMatrix).forEach(prod => {
+    for (const prod of Object.keys(sim.afinidadMatrix)) {
       if (Array.isArray(afinidadMatrix[prod])) sim.afinidadMatrix[prod] = afinidadMatrix[prod].map(v => +v);
-    });
-    storage.save(DB); return ok(res, { ok:true });
+    }
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
-  if (url === '/admin/competencia' && method === 'GET') { if (needAdmin()) return; if (!sim) return err(res,400,'Sin sim'); return ok(res, sim.competenciaExterna); }
+  if (url === '/admin/competencia' && method === 'GET') {
+    if (needAdmin()) return;
+    if (!sim) return err(res, 400, 'Sin simulación');
+    return ok(res, sim.competenciaExterna);
+  }
   if (url === '/admin/competencia' && method === 'PUT') {
     if (needAdmin()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const { competencia } = body;
     if (!Array.isArray(competencia)) return err(res, 400, 'Array requerido');
     sim.competenciaExterna = competencia.map(c => ({
-      segmento: String(c.segmento||''), nombre: String(c.nombre||''),
-      precio: +c.precio, calidad: +c.calidad, marketing: +c.marketing, participacionRef: +c.participacionRef,
+      segmento: String(c.segmento||''),
+      nombre: String(c.nombre||''),
+      precio: +c.precio,
+      calidad: +c.calidad,
+      marketing: +c.marketing,
+      participacionRef: +c.participacionRef,
     }));
-    storage.save(DB); return ok(res, { ok:true });
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   // ─── EQUIPO — Decisiones ──────────────────────────────────────
@@ -570,15 +635,21 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const equipoId = s.userId;
     const n = sim.config.currentRound;
-    const ronda = storage.ensureRonda(sim, n);
-    if (!ronda.decisiones[equipoId]) {
-      const eq = storage.findUserInSim(sim, equipoId);
-      ronda.decisiones[equipoId] = storage.defaultDecision(equipoId, eq?.nombre||equipoId, sim.parametros);
-      storage.save(DB);
+    let ronda = await storage.getRonda(sim, n);
+    if (!ronda) {
+      ronda = await storage.ensureRonda(sim, n);
+      await storage.save(DB);
     }
-    const cfg = storage.getSimConfig(sim);
+    if (!ronda.decisiones[equipoId]) {
+      const eq = await storage.findUserInSim(sim, equipoId);
+      ronda.decisiones[equipoId] = storage.defaultDecision(equipoId, eq?.nombre||equipoId, sim.parametros);
+      await storage.save(DB);
+    }
+    const cfg = await storage.getSimConfig(sim);
     return ok(res, {
-      ronda: n, roundState: sim.config.roundState, decision: ronda.decisiones[equipoId],
+      ronda: n,
+      roundState: sim.config.roundState,
+      decision: ronda.decisiones[equipoId],
       referencia: {
         segmentos: cfg.segmentos,
         tiposProducto: Object.keys(cfg.tiposProducto).map(k => ({ nombre:k, costoBase: cfg.tiposProducto[k].costoBase })),
@@ -607,13 +678,14 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const equipoId = s.userId;
     const n = sim.config.currentRound;
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda) return err(res, 400, 'Sin ronda');
     if (ronda.estado === 'simulated') return err(res, 400, 'Ronda simulada');
     if (sim.config.roundState === 'pending') return err(res, 400, 'Ronda no habilitada');
     const cur = ronda.decisiones[equipoId] || {};
-    ronda.decisiones[equipoId] = { ...cur, ...body.decision, equipo:equipoId, submitted: cur.submitted||false };
-    storage.save(DB); return ok(res, { ok:true });
+    ronda.decisiones[equipoId] = { ...cur, ...body.decision, equipo: equipoId, submitted: cur.submitted||false };
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/api/decisiones/enviar' && method === 'POST') {
@@ -621,13 +693,14 @@ async function route(req, res, body) {
     if (!sim) return err(res, 400, 'Sin simulación');
     const equipoId = s.userId;
     const n = sim.config.currentRound;
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda) return err(res, 400, 'Sin ronda');
     if (ronda.estado === 'simulated') return err(res, 400, 'Ronda simulada');
     if (sim.config.roundState === 'pending') return err(res, 400, 'Ronda no habilitada');
     const cur = ronda.decisiones[equipoId] || {};
-    ronda.decisiones[equipoId] = { ...cur, ...body.decision, equipo:equipoId, submitted:true, submittedAt: new Date().toISOString() };
-    storage.save(DB); return ok(res, { ok:true });
+    ronda.decisiones[equipoId] = { ...cur, ...body.decision, equipo: equipoId, submitted: true, submittedAt: new Date().toISOString() };
+    await storage.save(DB);
+    return ok(res, { ok:true });
   }
 
   if (url === '/api/resultados' && method === 'GET') {
@@ -636,7 +709,7 @@ async function route(req, res, body) {
     const equipoId = s.userId;
     const historial = [];
     for (let i = 1; i <= sim.config.currentRound; i++) {
-      const r = storage.getRonda(sim, i);
+      const r = await storage.getRonda(sim, i);
       if (!r || r.estado !== 'simulated') continue;
       const resultado = r.resultados[equipoId];
       if (!resultado) continue;
@@ -650,7 +723,7 @@ async function route(req, res, body) {
     if (needEquipo()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const n = parseInt(url.split('/')[3]);
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda || ronda.estado !== 'simulated') return err(res, 404, 'Sin resultados');
     return ok(res, { ronda:n, reportes: ronda.reportes?.[s.userId]||{} });
   }
@@ -659,36 +732,30 @@ async function route(req, res, body) {
     if (needEquipo()) return;
     if (!sim) return err(res, 400, 'Sin simulación');
     const n = parseInt(url.split('/')[3]);
-    const ronda = storage.getRonda(sim, n);
+    const ronda = await storage.getRonda(sim, n);
     if (!ronda || ronda.estado !== 'simulated') return err(res, 404, 'Sin resultados');
-    const sorted = Object.values(ronda.resultados).sort((a,b) => b.utilidadNeta - a.utilidadNeta);
+    const resultados = Object.values(ronda.resultados);
+    const sorted = resultados.sort((a,b) => b.utilidadNeta - a.utilidadNeta);
     const ranking = sorted.map(r => ({ esYo: r.equipo===s.userId, utilidadNeta:r.utilidadNeta, ventas:r.ventasReales, share:r.shareReal, caja:r.cajaFinal }));
-    const ebits = Object.values(ronda.resultados).map(r => r.utilidadNeta);
+    const ebits = resultados.map(r => r.utilidadNeta);
     return ok(res, { ronda:n, ranking, stats: { ebitPromedio: ebits.reduce((a,b)=>a+b,0)/ebits.length, totalEquipos: ebits.length } });
   }
 
-  return null; // not handled
+  return null;
 }
 
-// ── HTTP Server ───────────────────────────────────────────────
+// ── Servidor HTTP ─────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  // Inject session
+  // Sesión
   const raw = req.headers.cookie || '';
   const sid = raw.split(';').map(c=>c.trim()).find(c=>c.startsWith('sid='));
   const token = sid ? sid.split('=')[1] : null;
   req.session = token ? (sessions.get(token) || null) : null;
   req._sessionToken = token;
 
-  req.setSession = (data) => {
-    const t = require('crypto').randomBytes(32).toString('hex');
-    sessions.set(t, { ...data, createdAt: Date.now() });
-    res.setHeader('Set-Cookie', `sid=${t}; HttpOnly; Path=/; SameSite=Lax`);
-    return t;
-  };
-
   const url = req.url.split('?')[0];
 
-  // Serve static files
+  // Archivos estáticos
   if (req.method === 'GET' && !url.startsWith('/auth') && !url.startsWith('/admin') && !url.startsWith('/api')) {
     let filePath = url === '/' ? path.join(PUB_DIR, 'index.html') : path.join(PUB_DIR, url);
     if (!filePath.startsWith(PUB_DIR)) { res.writeHead(403); return res.end(); }
@@ -706,16 +773,16 @@ const server = http.createServer(async (req, res) => {
 
   try {
     const handled = await route(req, res, body);
-    if (handled === null) { send(res, 404, { error: 'Ruta no encontrada' }); }
+    if (handled === null) send(res, 404, { error: 'Ruta no encontrada' });
   } catch(e) {
-    console.error('Error:', e.message);
-    send(res, 500, { error: e.message });
+    console.error('Error en ruta:', e.message);
+    send(res, 500, { error: 'Error interno del servidor' });
   }
 });
 
 server.listen(PORT, () => {
-  console.log('\n╔═══════════════════════════════════════════════════════════╗');
-  console.log('║  🧼  SimMkt v3.0 — Multi-Simulación  ·  UAGRM             ║');
+  console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
+  console.log(`║  🧼  SimMkt v3.0 — Multi-Simulación  ·  UAGRM             ║`);
   console.log(`║  → http://localhost:${PORT}  (admin / admin123)                ║`);
-  console.log('╚═══════════════════════════════════════════════════════════╝\n');
+  console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
 });
