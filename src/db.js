@@ -2,7 +2,11 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // necesario para Render
+  ssl: {
+    rejectUnauthorized: false,
+    ca: null,
+    checkServerIdentity: () => undefined
+  }
 });
 
 module.exports = pool;
