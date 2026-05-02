@@ -7,6 +7,9 @@ const fs   = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// FORZAR ACEPTACIÓN DE CERTIFICADOS SSL AUTOFIRMADOS (solo para este entorno)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const { hashPassword, verifyPassword } = require('./src/auth');
 const storage  = require('./src/storage');
 const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion } = require('./src/engine');
