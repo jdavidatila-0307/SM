@@ -781,6 +781,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor corriendo en http://0.0.0.0:${PORT}`);
   console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
   console.log(`║  🧼  SimMkt v3.0 — Multi-Simulación  ·  UAGRM             ║`);
   console.log(`║  → http://localhost:${PORT}  (admin / admin123)                ║`);
