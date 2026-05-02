@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SimMkt — Jaboncillos Bolivia</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -17,6 +17,12 @@
 
     <!-- LOGIN CARD -->
     <div class="login-card" id="cardLogin">
+      <!-- Contenedor de las tres imágenes justo encima del icono jabón -->
+      <div class="logos-container">
+        <img src="images/Log1-UAGRM.JFIF" alt="UAGRM" class="login-logo-img">
+        <img src="images/Log2-Ciencias-Economicas-UAGRM.JPG" alt="Ciencias Económicas" class="login-logo-img">
+        <img src="images/Log3-lng-Comercial.PNG" alt="Ingeniería Comercial" class="login-logo-img">
+      </div>
       <div class="login-logo">🧼</div>
       <h1 class="login-title">SimMkt</h1>
       <p class="login-sub">Mercado Boliviano de Jaboncillos</p>
@@ -24,11 +30,11 @@
 
       <div class="form-group">
         <label class="form-label">Nombre de equipo o ID de acceso</label>
-        <input class="form-input" id="loginId" type="text" placeholder="Ej: Empresa Alfa  ó  admin" autocomplete="username"/>
+        <input class="form-input" id="loginId" type="text" placeholder="Ej: Empresa Alfa  ó  admin" autocomplete="username">
       </div>
       <div class="form-group" style="margin-top:14px">
         <label class="form-label">Contraseña</label>
-        <input class="form-input" id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+        <input class="form-input" id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:20px">Ingresar →</button>
       <p class="login-error" id="loginError"></p>
@@ -45,7 +51,7 @@
 
       <div class="form-group">
         <label class="form-label">Nombre del equipo / empresa <span style="color:var(--accent4)">*</span></label>
-        <input class="form-input" id="regNombreEquipo" placeholder="Ej: Empresa Andina S.A."/>
+        <input class="form-input" id="regNombreEquipo" placeholder="Ej: Empresa Andina S.A.">
       </div>
 
       <div style="margin-top:20px">
@@ -60,18 +66,18 @@
         <div class="form-group">
           <label class="form-label">Contraseña <span style="color:var(--accent4)">*</span></label>
           <div class="pw-input-wrap">
-            <input class="form-input" id="regPassword" type="password" placeholder="Mínimo 4 caracteres" autocomplete="new-password"/>
+            <input class="form-input" id="regPassword" type="password" placeholder="Mínimo 4 caracteres" autocomplete="new-password">
             <button type="button" class="btn-eye-input" onclick="toggleInputPw('regPassword',this)" title="Mostrar/ocultar">👁</button>
           </div>
           <div class="form-group" style="margin-top:8px">
-            <input class="form-input" id="regCodigo" type="text" placeholder="Código de simulación — lo da el profesor (ej: MKT-A2B3)" style="text-transform:uppercase;letter-spacing:2px" autocomplete="off" oninput="this.value=this.value.toUpperCase();validarCodigo(this.value)"/>
+            <input class="form-input" id="regCodigo" type="text" placeholder="Código de simulación — lo da el profesor (ej: MKT-A2B3)" style="text-transform:uppercase;letter-spacing:2px" autocomplete="off" oninput="this.value=this.value.toUpperCase();validarCodigo(this.value)">
             <div id="codigoStatus" style="font-size:.72rem;margin-top:4px;padding:0 4px;min-height:16px"></div>
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Confirmar contraseña <span style="color:var(--accent4)">*</span></label>
           <div class="pw-input-wrap">
-            <input class="form-input" id="regPasswordConfirm" type="password" placeholder="Repite la contraseña" autocomplete="new-password"/>
+            <input class="form-input" id="regPasswordConfirm" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
             <button type="button" class="btn-eye-input" onclick="toggleInputPw('regPasswordConfirm',this)" title="Mostrar/ocultar">👁</button>
           </div>
         </div>
@@ -150,11 +156,11 @@
         <div class="modal-card">
           <h3 class="modal-title">➕ Nuevo Equipo</h3>
           <div class="form-group"><label class="form-label">Nombre de la empresa/equipo</label>
-            <input class="form-input" id="nuevoNombre" placeholder="Ej: Empresa Alpha"/></div>
+            <input class="form-input" id="nuevoNombre" placeholder="Ej: Empresa Alpha"></div>
           <div class="form-group" style="margin-top:12px"><label class="form-label">Miembros (separados por coma)</label>
-            <input class="form-input" id="nuevoMiembros" placeholder="Ana, Luis, Maria"/></div>
+            <input class="form-input" id="nuevoMiembros" placeholder="Ana, Luis, Maria"></div>
           <div class="form-group" style="margin-top:12px"><label class="form-label">Contraseña de acceso</label>
-            <input class="form-input" id="nuevoPassword" type="password" placeholder="Mínimo 6 caracteres"/></div>
+            <input class="form-input" id="nuevoPassword" type="password" placeholder="Mínimo 6 caracteres"></div>
           <div class="modal-actions">
             <button class="btn btn-ghost" id="btnCancelarEquipo">Cancelar</button>
             <button class="btn btn-primary" id="btnGuardarEquipo">Crear Equipo</button>
