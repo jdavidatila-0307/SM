@@ -1,0 +1,1123 @@
+{
+  "admin": {
+    "id": "admin",
+    "nombre": "Administrador",
+    "password": "bc99da84f9990f67718bbb3a02a69720:60f7edb4462a64a023cebca06084f1bd42efc7180603292aeabed69785b9095be8126c9c388fb818a6e043984e619b7fe13bd07da449955a8b939d4135a9a1f9",
+    "passwordPlain": "admin123",
+    "rol": "admin"
+  },
+  "simulaciones": {
+    "sim_mo8zijg0": {
+      "nombre": "Simulación Principal",
+      "descripcion": "Simulación inicial del sistema",
+      "creadaAt": "2026-04-21T18:56:07.153Z",
+      "estado": "activa",
+      "codigoAcceso": "MKT-SQHW",
+      "config": {
+        "currentRound": 1,
+        "totalRounds": 20,
+        "roundState": "pending"
+      },
+      "parametros": {
+        "moneda": "Bs",
+        "trimestresPorAnio": 4,
+        "capitalInicial": 150000,
+        "cajaInicial": 50000,
+        "activosFijosIniciales": 80000,
+        "inventarioInicialUnid": 0,
+        "cxcInicial": 0,
+        "deudaInicial": 0,
+        "capacidadMaxProduccion": 20000,
+        "gastoAdminFijo": 8000,
+        "gastoFijoPlanta": 5000,
+        "depreciacionTrimestral": 2000,
+        "costoAlmacenamientoUnidad": 0.1,
+        "pctVentasContado": 0.7,
+        "pctVentasCredito": 0.3,
+        "plazoCobro": 1,
+        "tasaPrestamoOperativo": 0.04,
+        "tasaPrestamoInversion": 0.03,
+        "tasaSobregiro": 0.06,
+        "comisionAperturaPrestamo": 0.01,
+        "plazoPrestamoOperativo": 2,
+        "plazoPrestamoInversion": 4,
+        "vendedoresIniciales": 2,
+        "sueldoTrimestralVendedor": 2400,
+        "costoContratacionVendedor": 500,
+        "costoDespidoVendedor": 800,
+        "costoInvestigacionBasica": 4000,
+        "costoInvestigacionPremium": 7500,
+        "factorInnovacionProducto": 0.333,
+        "factorInnovacionProceso": 0.333
+      },
+      "tiposProducto": {
+        "Básico": {
+          "costoBase": 2.1
+        },
+        "Antibacterial": {
+          "costoBase": 2.6
+        },
+        "Cosmético": {
+          "costoBase": 3.2
+        },
+        "Dermatológico": {
+          "costoBase": 3.8
+        },
+        "Natural": {
+          "costoBase": 3.4
+        },
+        "Institucional": {
+          "costoBase": 2.9
+        }
+      },
+      "canales": {
+        "Mercado": {
+          "costoAdicionalUnitario": 0.2,
+          "comisionPct": 0.08,
+          "factorImpactoVendedores": 0.4,
+          "bonoAtractivo": 2
+        },
+        "Supermercado": {
+          "costoAdicionalUnitario": 0.45,
+          "comisionPct": 0.15,
+          "factorImpactoVendedores": 0.7,
+          "bonoAtractivo": 2
+        },
+        "Farmacia": {
+          "costoAdicionalUnitario": 0.6,
+          "comisionPct": 0.18,
+          "factorImpactoVendedores": 0.8,
+          "bonoAtractivo": 2
+        },
+        "Digital": {
+          "costoAdicionalUnitario": 0.35,
+          "comisionPct": 0.1,
+          "factorImpactoVendedores": 0.2,
+          "bonoAtractivo": 2
+        },
+        "Institucional": {
+          "costoAdicionalUnitario": 0.25,
+          "comisionPct": 0.12,
+          "factorImpactoVendedores": 1,
+          "bonoAtractivo": 2
+        }
+      },
+      "segmentos": [
+        {
+          "nombre": "Masivo popular",
+          "demandaBase": 40000,
+          "pctContrabando": 0.3,
+          "indiceExterno": 7.8,
+          "tendencia": "Estable",
+          "descripcion": "Alta sensibilidad al precio"
+        },
+        {
+          "nombre": "Masivo aspiracional",
+          "demandaBase": 18000,
+          "pctContrabando": 0.2,
+          "indiceExterno": 6.5,
+          "tendencia": "Creciente",
+          "descripcion": "Busca marca accesible y calidad"
+        },
+        {
+          "nombre": "Funcional familiar",
+          "demandaBase": 16000,
+          "pctContrabando": 0.15,
+          "indiceExterno": 5.8,
+          "tendencia": "Creciente",
+          "descripcion": "Prioriza protección e higiene"
+        },
+        {
+          "nombre": "Cosmético",
+          "demandaBase": 14000,
+          "pctContrabando": 0.1,
+          "indiceExterno": 6.2,
+          "tendencia": "Estable",
+          "descripcion": "Valora fragancia e imagen"
+        },
+        {
+          "nombre": "Dermatológico",
+          "demandaBase": 10000,
+          "pctContrabando": 0.05,
+          "indiceExterno": 5.5,
+          "tendencia": "Creciente",
+          "descripcion": "Requiere cuidado especializado"
+        },
+        {
+          "nombre": "Natural",
+          "demandaBase": 12000,
+          "pctContrabando": 0.12,
+          "indiceExterno": 6,
+          "tendencia": "Alto crecimiento",
+          "descripcion": "Ingredientes naturales y diferenciación"
+        },
+        {
+          "nombre": "Institucional",
+          "demandaBase": 10000,
+          "pctContrabando": 0.03,
+          "indiceExterno": 5.2,
+          "tendencia": "Estable",
+          "descripcion": "Compra por volumen y condiciones"
+        }
+      ],
+      "afinidadMatrix": {
+        "Básico": [
+          3,
+          1,
+          2,
+          -2,
+          -2,
+          -1,
+          0
+        ],
+        "Antibacterial": [
+          2,
+          1,
+          3,
+          0,
+          1,
+          0,
+          1
+        ],
+        "Cosmético": [
+          -2,
+          2,
+          0,
+          3,
+          1,
+          1,
+          -2
+        ],
+        "Dermatológico": [
+          -2,
+          0,
+          1,
+          1,
+          3,
+          1,
+          -2
+        ],
+        "Natural": [
+          -1,
+          1,
+          1,
+          1,
+          1,
+          3,
+          -2
+        ],
+        "Institucional": [
+          -2,
+          -2,
+          0,
+          -2,
+          -2,
+          -2,
+          3
+        ]
+      },
+      "competenciaExterna": [
+        {
+          "segmento": "Masivo popular",
+          "nombre": "Contrabando genérico",
+          "precio": 2.8,
+          "calidad": 3,
+          "marketing": 0,
+          "participacionRef": 0.35
+        },
+        {
+          "segmento": "Natural",
+          "nombre": "Marca natural local",
+          "precio": 7.2,
+          "calidad": 8,
+          "marketing": 6000,
+          "participacionRef": 0.35
+        },
+        {
+          "segmento": "Cosmético",
+          "nombre": "Marca líder cosmética",
+          "precio": 7.8,
+          "calidad": 8,
+          "marketing": 9000,
+          "participacionRef": 0.4
+        }
+      ],
+      "users": [
+        {
+          "id": "admin",
+          "nombre": "Administrador",
+          "password": "b242d6a17061ba8eab1c96c3c313477a:6d1dee8dc30dd3971012ac5bf4675648979f0523f7b5aa567c0f3ac1726a8236a6b39304de2d9bee4d2d2cde54d0b791d688414a28bd3406af91b3eb7bafdbee",
+          "passwordPlain": "admin123",
+          "rol": "admin",
+          "miembros": []
+        }
+      ],
+      "rondas": {
+        "1": {
+          "estado": "open",
+          "abiertaAt": "2026-04-21T18:56:07.240Z",
+          "ejecutadaAt": null,
+          "decisiones": {},
+          "resultados": {},
+          "mercadoSegmentos": [],
+          "atractivoEquipos": {},
+          "dashboard": {}
+        }
+      }
+    },
+    "sim_mo8znoq5": {
+      "nombre": "Ejemplo",
+      "descripcion": "2 jugadores",
+      "creadaAt": "2026-04-21T19:00:07.277Z",
+      "estado": "activa",
+      "codigoAcceso": "MKT-6MKH",
+      "config": {
+        "currentRound": 2,
+        "totalRounds": 20,
+        "roundState": "open"
+      },
+      "parametros": {
+        "moneda": "Bs",
+        "trimestresPorAnio": 4,
+        "capitalInicial": 150000,
+        "cajaInicial": 50000,
+        "activosFijosIniciales": 80000,
+        "inventarioInicialUnid": 0,
+        "cxcInicial": 0,
+        "deudaInicial": 0,
+        "capacidadMaxProduccion": 20000,
+        "gastoAdminFijo": 8000,
+        "gastoFijoPlanta": 5000,
+        "depreciacionTrimestral": 2000,
+        "costoAlmacenamientoUnidad": 0.1,
+        "pctVentasContado": 0.7,
+        "pctVentasCredito": 0.3,
+        "plazoCobro": 1,
+        "tasaPrestamoOperativo": 0.04,
+        "tasaPrestamoInversion": 0.03,
+        "tasaSobregiro": 0.06,
+        "comisionAperturaPrestamo": 0.01,
+        "plazoPrestamoOperativo": 2,
+        "plazoPrestamoInversion": 4,
+        "vendedoresIniciales": 2,
+        "sueldoTrimestralVendedor": 2400,
+        "costoContratacionVendedor": 500,
+        "costoDespidoVendedor": 800,
+        "costoInvestigacionBasica": 4000,
+        "costoInvestigacionPremium": 7500,
+        "factorInnovacionProducto": 0.333,
+        "factorInnovacionProceso": 0.333
+      },
+      "tiposProducto": {
+        "Básico": {
+          "costoBase": 2.1
+        },
+        "Antibacterial": {
+          "costoBase": 2.6
+        },
+        "Cosmético": {
+          "costoBase": 3.2
+        },
+        "Dermatológico": {
+          "costoBase": 3.8
+        },
+        "Natural": {
+          "costoBase": 3.4
+        },
+        "Institucional": {
+          "costoBase": 2.9
+        }
+      },
+      "canales": {
+        "Mercado": {
+          "costoAdicionalUnitario": 0.2,
+          "comisionPct": 0.08,
+          "factorImpactoVendedores": 0.4,
+          "bonoAtractivo": 2
+        },
+        "Supermercado": {
+          "costoAdicionalUnitario": 0.45,
+          "comisionPct": 0.15,
+          "factorImpactoVendedores": 0.7,
+          "bonoAtractivo": 2
+        },
+        "Farmacia": {
+          "costoAdicionalUnitario": 0.6,
+          "comisionPct": 0.18,
+          "factorImpactoVendedores": 0.8,
+          "bonoAtractivo": 2
+        },
+        "Digital": {
+          "costoAdicionalUnitario": 0.35,
+          "comisionPct": 0.1,
+          "factorImpactoVendedores": 0.2,
+          "bonoAtractivo": 2
+        },
+        "Institucional": {
+          "costoAdicionalUnitario": 0.25,
+          "comisionPct": 0.12,
+          "factorImpactoVendedores": 1,
+          "bonoAtractivo": 2
+        }
+      },
+      "segmentos": [
+        {
+          "nombre": "Masivo popular",
+          "demandaBase": 40000,
+          "pctContrabando": 0.3,
+          "indiceExterno": 7.8,
+          "tendencia": "Estable",
+          "descripcion": "Alta sensibilidad al precio"
+        },
+        {
+          "nombre": "Masivo aspiracional",
+          "demandaBase": 18000,
+          "pctContrabando": 0.2,
+          "indiceExterno": 6.5,
+          "tendencia": "Creciente",
+          "descripcion": "Busca marca accesible y calidad"
+        },
+        {
+          "nombre": "Funcional familiar",
+          "demandaBase": 16000,
+          "pctContrabando": 0.15,
+          "indiceExterno": 5.8,
+          "tendencia": "Creciente",
+          "descripcion": "Prioriza protección e higiene"
+        },
+        {
+          "nombre": "Cosmético",
+          "demandaBase": 14000,
+          "pctContrabando": 0.1,
+          "indiceExterno": 6.2,
+          "tendencia": "Estable",
+          "descripcion": "Valora fragancia e imagen"
+        },
+        {
+          "nombre": "Dermatológico",
+          "demandaBase": 10000,
+          "pctContrabando": 0.05,
+          "indiceExterno": 5.5,
+          "tendencia": "Creciente",
+          "descripcion": "Requiere cuidado especializado"
+        },
+        {
+          "nombre": "Natural",
+          "demandaBase": 12000,
+          "pctContrabando": 0.12,
+          "indiceExterno": 6,
+          "tendencia": "Alto crecimiento",
+          "descripcion": "Ingredientes naturales y diferenciación"
+        },
+        {
+          "nombre": "Institucional",
+          "demandaBase": 10000,
+          "pctContrabando": 0.03,
+          "indiceExterno": 5.2,
+          "tendencia": "Estable",
+          "descripcion": "Compra por volumen y condiciones"
+        }
+      ],
+      "afinidadMatrix": {
+        "Básico": [
+          3,
+          1,
+          2,
+          -2,
+          -2,
+          -1,
+          0
+        ],
+        "Antibacterial": [
+          2,
+          1,
+          3,
+          0,
+          1,
+          0,
+          1
+        ],
+        "Cosmético": [
+          -2,
+          2,
+          0,
+          3,
+          1,
+          1,
+          -2
+        ],
+        "Dermatológico": [
+          -2,
+          0,
+          1,
+          1,
+          3,
+          1,
+          -2
+        ],
+        "Natural": [
+          -1,
+          1,
+          1,
+          1,
+          1,
+          3,
+          -2
+        ],
+        "Institucional": [
+          -2,
+          -2,
+          0,
+          -2,
+          -2,
+          -2,
+          3
+        ]
+      },
+      "competenciaExterna": [
+        {
+          "segmento": "Masivo popular",
+          "nombre": "Contrabando genérico",
+          "precio": 2.8,
+          "calidad": 3,
+          "marketing": 0,
+          "participacionRef": 0.35
+        },
+        {
+          "segmento": "Natural",
+          "nombre": "Marca natural local",
+          "precio": 7.2,
+          "calidad": 8,
+          "marketing": 6000,
+          "participacionRef": 0.35
+        },
+        {
+          "segmento": "Cosmético",
+          "nombre": "Marca líder cosmética",
+          "precio": 7.8,
+          "calidad": 8,
+          "marketing": 9000,
+          "participacionRef": 0.4
+        }
+      ],
+      "users": [
+        {
+          "id": "eq_mo8znoq5_j1_mo8zqrfd",
+          "nombre": "j1",
+          "simulacionId": "sim_mo8znoq5",
+          "password": "5040c68a5dd48738a60c5519ab8fe046:cfd3c17913a5986f51a7e1f0c30445d52250d2a906526c625fc583a4d23b4b251fd4232092892b7ff308dcd4af939a05938f2178d087f2c20ba3d4f73fb858bf",
+          "passwordPlain": "1234",
+          "rol": "equipo",
+          "registradoAt": "2026-04-21T19:02:30.793Z",
+          "miembros": [
+            {
+              "apellidoPaterno": "fdasfdsa",
+              "apellidoMaterno": "fdasfdsa",
+              "nombres": "fdsafsadf",
+              "telefono": "453432542",
+              "nroRegistro": "5235423423"
+            }
+          ]
+        },
+        {
+          "id": "eq_mo8znoq5_j2_mo8zrqeo",
+          "nombre": "j2",
+          "simulacionId": "sim_mo8znoq5",
+          "password": "3347ed962ef6be1c492663a87dc62038:3ae9d6c9dffbde0909e13d5075c07e5e2a9fcdc315fdc23e4f744f493677f6d44b46c433ff92faf416642953048d8fb0ffed972aa2d3d554ab87a7eb0afaca12",
+          "passwordPlain": "1234",
+          "rol": "equipo",
+          "registradoAt": "2026-04-21T19:03:16.131Z",
+          "miembros": [
+            {
+              "apellidoPaterno": "hdfhdfgh",
+              "apellidoMaterno": "hgdfhfgd",
+              "nombres": "ghdfghdfg",
+              "telefono": "6546546",
+              "nroRegistro": "654363464"
+            }
+          ]
+        }
+      ],
+      "rondas": {
+        "1": {
+          "estado": "simulated",
+          "abiertaAt": "2026-04-21T19:02:30.793Z",
+          "ejecutadaAt": "2026-04-21T19:17:40.707Z",
+          "decisiones": {
+            "eq_mo8znoq5_j1_mo8zqrfd": {
+              "equipo": "eq_mo8znoq5_j1_mo8zqrfd",
+              "equipoNombre": "j1",
+              "producto": "Básico",
+              "segmentoObjetivo": "Masivo popular",
+              "canalPrincipal": "Mercado",
+              "canalSecundario": "Ninguno",
+              "calidad": 5,
+              "precioVenta": 3.6,
+              "produccion": 18000,
+              "publicidad": 3000,
+              "promocion": 2000,
+              "eventos": 1000,
+              "marketingRedes": 1000,
+              "relacionesPublicas": 1000,
+              "contratarVendedores": 1,
+              "despedirVendedores": 0,
+              "tipoPrestamo": "Operativo",
+              "montoPrestamo": 10000,
+              "plazoPrestamo": 2,
+              "amortizacion": 0,
+              "innovacion": false,
+              "tipoInnovacion": "",
+              "montoInnovacion": 0,
+              "tipoInvestigacion": "Básica",
+              "vendedoresIniciales": 2,
+              "cajaInicial": 50000,
+              "activosFijosIniciales": 80000,
+              "cxcInicial": 0,
+              "deudaInicial": 0,
+              "inventarioInicial": 0,
+              "resultadoAcumuladoAnterior": 0,
+              "submitted": true,
+              "submittedAt": "2026-04-21T19:11:05.336Z"
+            },
+            "eq_mo8znoq5_j2_mo8zrqeo": {
+              "equipo": "eq_mo8znoq5_j2_mo8zrqeo",
+              "equipoNombre": "j2",
+              "producto": "Natural",
+              "segmentoObjetivo": "Natural",
+              "canalPrincipal": "Farmacia",
+              "canalSecundario": "Digital",
+              "calidad": 8,
+              "precioVenta": 7.4,
+              "produccion": 10000,
+              "publicidad": 3000,
+              "promocion": 1500,
+              "eventos": 1500,
+              "marketingRedes": 3000,
+              "relacionesPublicas": 3000,
+              "contratarVendedores": 0,
+              "despedirVendedores": 0,
+              "tipoPrestamo": "Inversión",
+              "montoPrestamo": 20000,
+              "plazoPrestamo": 4,
+              "amortizacion": 0,
+              "innovacion": true,
+              "tipoInnovacion": "",
+              "montoInnovacion": 12000,
+              "tipoInvestigacion": "No",
+              "vendedoresIniciales": 2,
+              "cajaInicial": 50000,
+              "activosFijosIniciales": 80000,
+              "cxcInicial": 0,
+              "deudaInicial": 0,
+              "inventarioInicial": 0,
+              "resultadoAcumuladoAnterior": 0,
+              "submitted": true,
+              "submittedAt": "2026-04-21T19:13:39.419Z"
+            }
+          },
+          "resultados": {
+            "eq_mo8znoq5_j1_mo8zqrfd": {
+              "equipo": "eq_mo8znoq5_j1_mo8zqrfd",
+              "equipoNombre": "j1",
+              "segmento": "Masivo popular",
+              "producto": "Básico",
+              "calidad": 5,
+              "precioVenta": 3.6,
+              "produccion": 18000,
+              "demandaFormal": 28000,
+              "demandaAsignada": 15191,
+              "ventasReales": 15191,
+              "shareReal": 0.5425219941348973,
+              "atractivo": 9.25,
+              "ventasBrutas": 54687.6,
+              "comisiones": 4375.01,
+              "ventasNetas": 50312.59,
+              "costoVentas": 50130.3,
+              "utilidadBruta": 182.29,
+              "publicidad": 3000,
+              "promocion": 2000,
+              "eventos": 1000,
+              "marketingRedes": 1000,
+              "relacionesPublicas": 1000,
+              "costoVendedores": 7700,
+              "gastoAdminFijo": 8000,
+              "gastoFijoPlanta": 5000,
+              "depreciacion": 2000,
+              "costoAlmacenamiento": 280.9,
+              "gastoInnovacion": 0,
+              "interesesPrestamo": 400,
+              "comisionApertura": 100,
+              "interesSobregiro": 0,
+              "gastosOp": 31480.9,
+              "utilidadNeta": -31298.61,
+              "cajaInicial": 50000,
+              "cobrosContado": 35218.81,
+              "ingresoPrestamo": 10000,
+              "pagoProduccion": 59400,
+              "pagoMktTotal": 15700,
+              "pagoAdmin": 8000,
+              "pagoPlanta": 5000,
+              "pagoInnovacion": 0,
+              "pagoAlmacen": 280.9,
+              "pagoIntereses": 400,
+              "pagoApertura": 100,
+              "totalPagos": 88880.9,
+              "sobregiro": 0,
+              "cajaFinal": 6337.91,
+              "cxcFinal": 15093.78,
+              "invFinalValorizado": 9269.7,
+              "afNetos": 78000,
+              "totalActivos": 108701.39,
+              "deudaFinal": 10000,
+              "totalPasivos": 10000,
+              "capitalContable": 130000,
+              "resultadoAcumulado": -31298.61,
+              "patrimonio": 98701.39,
+              "inventarioFinal": 2809,
+              "vendedoresFinales": 3,
+              "activosFijosNetos": 78000,
+              "costoUnitario": 3.3,
+              "comisionPct": 0.08,
+              "alertaCaja": "OK"
+            },
+            "eq_mo8znoq5_j2_mo8zrqeo": {
+              "equipo": "eq_mo8znoq5_j2_mo8zrqeo",
+              "equipoNombre": "j2",
+              "segmento": "Natural",
+              "producto": "Natural",
+              "calidad": 8,
+              "precioVenta": 7.4,
+              "produccion": 10000,
+              "demandaFormal": 10560,
+              "demandaAsignada": 6308,
+              "ventasReales": 6308,
+              "shareReal": 0.5973154362416108,
+              "atractivo": 8.9,
+              "ventasBrutas": 46679.2,
+              "comisiones": 6535.09,
+              "ventasNetas": 40144.11,
+              "costoVentas": 34567.84,
+              "utilidadBruta": 5576.27,
+              "publicidad": 3000,
+              "promocion": 1500,
+              "eventos": 1500,
+              "marketingRedes": 3000,
+              "relacionesPublicas": 3000,
+              "costoVendedores": 4800,
+              "gastoAdminFijo": 8000,
+              "gastoFijoPlanta": 5000,
+              "depreciacion": 2000,
+              "costoAlmacenamiento": 369.2,
+              "gastoInnovacion": 12000,
+              "interesesPrestamo": 600,
+              "comisionApertura": 200,
+              "interesSobregiro": 0,
+              "gastosOp": 44969.2,
+              "utilidadNeta": -39392.93,
+              "cajaInicial": 50000,
+              "cobrosContado": 28100.88,
+              "ingresoPrestamo": 20000,
+              "pagoProduccion": 54800,
+              "pagoMktTotal": 16800,
+              "pagoAdmin": 8000,
+              "pagoPlanta": 5000,
+              "pagoInnovacion": 12000,
+              "pagoAlmacen": 369.2,
+              "pagoIntereses": 600,
+              "pagoApertura": 200,
+              "totalPagos": 97769.2,
+              "sobregiro": 0,
+              "cajaFinal": 331.68,
+              "cxcFinal": 12043.23,
+              "invFinalValorizado": 20232.16,
+              "afNetos": 78000,
+              "totalActivos": 110607.07,
+              "deudaFinal": 20000,
+              "totalPasivos": 20000,
+              "capitalContable": 130000,
+              "resultadoAcumulado": -39392.93,
+              "patrimonio": 90607.07,
+              "inventarioFinal": 3692,
+              "vendedoresFinales": 2,
+              "activosFijosNetos": 78000,
+              "costoUnitario": 5.48,
+              "comisionPct": 0.14,
+              "alertaCaja": "ALERTA"
+            }
+          },
+          "mercadoSegmentos": [
+            {
+              "nombre": "Masivo popular",
+              "demandaBase": 40000,
+              "pctContrabando": 0.3,
+              "demandaFormal": 28000,
+              "tendencia": "Estable",
+              "descripcion": "Alta sensibilidad al precio",
+              "indiceExterno": 7.8
+            },
+            {
+              "nombre": "Masivo aspiracional",
+              "demandaBase": 18000,
+              "pctContrabando": 0.2,
+              "demandaFormal": 14400,
+              "tendencia": "Creciente",
+              "descripcion": "Busca marca accesible y calidad",
+              "indiceExterno": 6.5
+            },
+            {
+              "nombre": "Funcional familiar",
+              "demandaBase": 16000,
+              "pctContrabando": 0.15,
+              "demandaFormal": 13600,
+              "tendencia": "Creciente",
+              "descripcion": "Prioriza protección e higiene",
+              "indiceExterno": 5.8
+            },
+            {
+              "nombre": "Cosmético",
+              "demandaBase": 14000,
+              "pctContrabando": 0.1,
+              "demandaFormal": 12600,
+              "tendencia": "Estable",
+              "descripcion": "Valora fragancia e imagen",
+              "indiceExterno": 6.2
+            },
+            {
+              "nombre": "Dermatológico",
+              "demandaBase": 10000,
+              "pctContrabando": 0.05,
+              "demandaFormal": 9500,
+              "tendencia": "Creciente",
+              "descripcion": "Requiere cuidado especializado",
+              "indiceExterno": 5.5
+            },
+            {
+              "nombre": "Natural",
+              "demandaBase": 12000,
+              "pctContrabando": 0.12,
+              "demandaFormal": 10560,
+              "tendencia": "Alto crecimiento",
+              "descripcion": "Ingredientes naturales y diferenciación",
+              "indiceExterno": 6
+            },
+            {
+              "nombre": "Institucional",
+              "demandaBase": 10000,
+              "pctContrabando": 0.03,
+              "demandaFormal": 9700,
+              "tendencia": "Estable",
+              "descripcion": "Compra por volumen y condiciones",
+              "indiceExterno": 5.2
+            }
+          ],
+          "atractivoEquipos": {
+            "eq_mo8znoq5_j1_mo8zqrfd": 9.25,
+            "eq_mo8znoq5_j2_mo8zrqeo": 8.9
+          },
+          "dashboard": {
+            "totalVentas": 21499,
+            "totalIngresos": 90456.7,
+            "totalUtilidad": -70691.54000000001,
+            "totalCaja": 6669.59
+          },
+          "preSimulacion": {
+            "eq_mo8znoq5_j1_mo8zqrfd": {
+              "equipo": "eq_mo8znoq5_j1_mo8zqrfd",
+              "equipoNombre": "j1",
+              "segmento": "Masivo popular",
+              "producto": "Básico",
+              "precioVenta": 3.6,
+              "shareEstimado": 0.5425219941348973,
+              "atractivo": 9.25,
+              "demandaFormal": 28000,
+              "demandaAsignada": 15191,
+              "ventasEstimadas": 15191,
+              "inventarioInicial": 0,
+              "produccion": 18000,
+              "inventarioDisponible": 18000,
+              "inventarioFinalEst": 2809,
+              "costoUnitario": 3.3,
+              "confirmado": true,
+              "confirmadoAt": "2026-04-21T19:16:16.400Z"
+            },
+            "eq_mo8znoq5_j2_mo8zrqeo": {
+              "equipo": "eq_mo8znoq5_j2_mo8zrqeo",
+              "equipoNombre": "j2",
+              "segmento": "Natural",
+              "producto": "Natural",
+              "precioVenta": 7.4,
+              "shareEstimado": 0.5973154362416108,
+              "atractivo": 8.9,
+              "demandaFormal": 10560,
+              "demandaAsignada": 6308,
+              "ventasEstimadas": 6308,
+              "inventarioInicial": 0,
+              "produccion": 10000,
+              "inventarioDisponible": 10000,
+              "inventarioFinalEst": 3692,
+              "costoUnitario": 5.48,
+              "confirmado": true,
+              "confirmadoAt": "2026-04-21T19:16:39.193Z"
+            }
+          },
+          "preSimMercado": [
+            {
+              "nombre": "Masivo popular",
+              "demandaBase": 40000,
+              "pctContrabando": 0.3,
+              "demandaFormal": 28000,
+              "tendencia": "Estable",
+              "descripcion": "Alta sensibilidad al precio",
+              "indiceExterno": 7.8
+            },
+            {
+              "nombre": "Masivo aspiracional",
+              "demandaBase": 18000,
+              "pctContrabando": 0.2,
+              "demandaFormal": 14400,
+              "tendencia": "Creciente",
+              "descripcion": "Busca marca accesible y calidad",
+              "indiceExterno": 6.5
+            },
+            {
+              "nombre": "Funcional familiar",
+              "demandaBase": 16000,
+              "pctContrabando": 0.15,
+              "demandaFormal": 13600,
+              "tendencia": "Creciente",
+              "descripcion": "Prioriza protección e higiene",
+              "indiceExterno": 5.8
+            },
+            {
+              "nombre": "Cosmético",
+              "demandaBase": 14000,
+              "pctContrabando": 0.1,
+              "demandaFormal": 12600,
+              "tendencia": "Estable",
+              "descripcion": "Valora fragancia e imagen",
+              "indiceExterno": 6.2
+            },
+            {
+              "nombre": "Dermatológico",
+              "demandaBase": 10000,
+              "pctContrabando": 0.05,
+              "demandaFormal": 9500,
+              "tendencia": "Creciente",
+              "descripcion": "Requiere cuidado especializado",
+              "indiceExterno": 5.5
+            },
+            {
+              "nombre": "Natural",
+              "demandaBase": 12000,
+              "pctContrabando": 0.12,
+              "demandaFormal": 10560,
+              "tendencia": "Alto crecimiento",
+              "descripcion": "Ingredientes naturales y diferenciación",
+              "indiceExterno": 6
+            },
+            {
+              "nombre": "Institucional",
+              "demandaBase": 10000,
+              "pctContrabando": 0.03,
+              "demandaFormal": 9700,
+              "tendencia": "Estable",
+              "descripcion": "Compra por volumen y condiciones",
+              "indiceExterno": 5.2
+            }
+          ],
+          "reportes": {
+            "eq_mo8znoq5_j1_mo8zqrfd": {
+              "investigacion": {
+                "tipo": "Básico",
+                "titulo": "Reporte de Inteligencia de Mercado — Básico",
+                "mercado": [
+                  {
+                    "segmento": "Masivo popular",
+                    "demandaBase": 40000,
+                    "contrabando": "30%",
+                    "mercadoFormal": 28000,
+                    "tendencia": "Estable"
+                  },
+                  {
+                    "segmento": "Masivo aspiracional",
+                    "demandaBase": 18000,
+                    "contrabando": "20%",
+                    "mercadoFormal": 14400,
+                    "tendencia": "Creciente"
+                  },
+                  {
+                    "segmento": "Funcional familiar",
+                    "demandaBase": 16000,
+                    "contrabando": "15%",
+                    "mercadoFormal": 13600,
+                    "tendencia": "Creciente"
+                  },
+                  {
+                    "segmento": "Cosmético",
+                    "demandaBase": 14000,
+                    "contrabando": "10%",
+                    "mercadoFormal": 12600,
+                    "tendencia": "Estable"
+                  },
+                  {
+                    "segmento": "Dermatológico",
+                    "demandaBase": 10000,
+                    "contrabando": "5%",
+                    "mercadoFormal": 9500,
+                    "tendencia": "Creciente"
+                  },
+                  {
+                    "segmento": "Natural",
+                    "demandaBase": 12000,
+                    "contrabando": "12%",
+                    "mercadoFormal": 10560,
+                    "tendencia": "Alto crecimiento"
+                  },
+                  {
+                    "segmento": "Institucional",
+                    "demandaBase": 10000,
+                    "contrabando": "3%",
+                    "mercadoFormal": 9700,
+                    "tendencia": "Estable"
+                  }
+                ],
+                "precios": [
+                  {
+                    "segmento": "Masivo popular",
+                    "precioMin": 3.6,
+                    "precioMax": 3.6,
+                    "precioProm": 3.6
+                  },
+                  {
+                    "segmento": "Masivo aspiracional",
+                    "precioMin": null,
+                    "precioMax": null,
+                    "precioProm": null
+                  },
+                  {
+                    "segmento": "Funcional familiar",
+                    "precioMin": null,
+                    "precioMax": null,
+                    "precioProm": null
+                  },
+                  {
+                    "segmento": "Cosmético",
+                    "precioMin": null,
+                    "precioMax": null,
+                    "precioProm": null
+                  },
+                  {
+                    "segmento": "Dermatológico",
+                    "precioMin": null,
+                    "precioMax": null,
+                    "precioProm": null
+                  },
+                  {
+                    "segmento": "Natural",
+                    "precioMin": 7.4,
+                    "precioMax": 7.4,
+                    "precioProm": 7.4
+                  },
+                  {
+                    "segmento": "Institucional",
+                    "precioMin": null,
+                    "precioMax": null,
+                    "precioProm": null
+                  }
+                ],
+                "alertas": [
+                  "Exceso de inventario: niveles sobre el 20% de la producción deterioran caja y rentabilidad.",
+                  "Presión del contrabando: el segmento Masivo popular sigue anclado a precios informales.",
+                  "Riesgo de sobregiro: estrategias con innovación y alto gasto comercial requieren disciplina en producción.",
+                  "Canales especializados (Farmacia, Digital) elevan posicionamiento pero aumentan costos y comisiones."
+                ]
+              }
+            },
+            "eq_mo8znoq5_j2_mo8zrqeo": {}
+          }
+        },
+        "2": {
+          "estado": "open",
+          "abiertaAt": "2026-04-21T22:49:47.588Z",
+          "ejecutadaAt": null,
+          "decisiones": {
+            "eq_mo8znoq5_j1_mo8zqrfd": {
+              "equipo": "eq_mo8znoq5_j1_mo8zqrfd",
+              "equipoNombre": "j1",
+              "producto": "Básico",
+              "segmentoObjetivo": "Masivo popular",
+              "canalPrincipal": "Mercado",
+              "canalSecundario": "Ninguno",
+              "calidad": 5,
+              "precioVenta": 3.6,
+              "produccion": 18000,
+              "publicidad": 3000,
+              "promocion": 2000,
+              "eventos": 1000,
+              "marketingRedes": 1000,
+              "relacionesPublicas": 1000,
+              "contratarVendedores": 0,
+              "despedirVendedores": 0,
+              "tipoPrestamo": "Ninguno",
+              "montoPrestamo": 0,
+              "plazoPrestamo": 2,
+              "amortizacion": 0,
+              "innovacion": false,
+              "tipoInnovacion": "",
+              "montoInnovacion": 0,
+              "tipoInvestigacion": "No",
+              "vendedoresIniciales": 3,
+              "cajaInicial": 6337.91,
+              "activosFijosIniciales": 78000,
+              "cxcInicial": 15093.78,
+              "deudaInicial": 10000,
+              "inventarioInicial": 2809,
+              "resultadoAcumuladoAnterior": -31298.61,
+              "submitted": false,
+              "submittedAt": null
+            },
+            "eq_mo8znoq5_j2_mo8zrqeo": {
+              "equipo": "eq_mo8znoq5_j2_mo8zrqeo",
+              "equipoNombre": "j2",
+              "producto": "Natural",
+              "segmentoObjetivo": "Natural",
+              "canalPrincipal": "Farmacia",
+              "canalSecundario": "Digital",
+              "calidad": 8,
+              "precioVenta": 7.4,
+              "produccion": 10000,
+              "publicidad": 3000,
+              "promocion": 1500,
+              "eventos": 1500,
+              "marketingRedes": 3000,
+              "relacionesPublicas": 3000,
+              "contratarVendedores": 0,
+              "despedirVendedores": 0,
+              "tipoPrestamo": "Ninguno",
+              "montoPrestamo": 0,
+              "plazoPrestamo": 4,
+              "amortizacion": 0,
+              "innovacion": false,
+              "tipoInnovacion": "",
+              "montoInnovacion": 0,
+              "tipoInvestigacion": "No",
+              "vendedoresIniciales": 2,
+              "cajaInicial": 331.68,
+              "activosFijosIniciales": 78000,
+              "cxcInicial": 12043.23,
+              "deudaInicial": 20000,
+              "inventarioInicial": 3692,
+              "resultadoAcumuladoAnterior": -39392.93,
+              "submitted": false,
+              "submittedAt": null
+            }
+          },
+          "resultados": {},
+          "mercadoSegmentos": [],
+          "atractivoEquipos": {},
+          "dashboard": {}
+        }
+      }
+    }
+  }
+}
