@@ -1,6 +1,6 @@
 /**
  * Almacenamiento persistente — v3.0 Multi-Simulación
- * Soporta JSON (local) y PostgreSQL (Render).
+ * Soporta JSON (local) y PostgreSQL (Render) con fallback automático.
  */
 const fs = require('fs');
 const path = require('path');
@@ -11,11 +11,13 @@ console.log('[storage] Iniciando carga...');
 console.log('[storage] process.env.DATABASE_URL existe?', !!process.env.DATABASE_URL);
 
 let pool = null;
+let usePostgres = false;
 try {
   if (process.env.DATABASE_URL) {
     console.log('[storage] Intentando cargar PostgreSQL...');
     pool = require('./db');
     console.log('[storage] pool cargado correctamente');
+    usePostgres = true;
   } else {
     console.log('[storage] No se encontró DATABASE_URL, usando JSON local');
   }
@@ -144,7 +146,7 @@ async function savePostgres(db) {
   }
 }
 
-// ── Carga/save con JSON (síncrono, pero adaptado a async para interfaz unificada) ──
+// ── Carga/save con JSON ────────────────────────────────────
 function loadJSON() {
   if (!fs.existsSync(DB_PATH)) {
     const dir = path.dirname(DB_PATH);
@@ -169,17 +171,32 @@ function saveJSON(db) {
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
 }
 
-// ── Exportar funciones asíncronas unificadas ───────────────
+// ── Exportar funciones asíncronas con fallback automático ───
 let loadDB, saveDB;
-if (pool) {
-  loadDB = loadPostgres;
-  saveDB = savePostgres;
+
+if (usePostgres && pool) {
+  loadDB = async () => {
+    try {
+      return await loadPostgres();
+    } catch (err) {
+      console.error('[storage] PostgreSQL falló en load, usando JSON local. Error:', err.message);
+      return loadJSON();
+    }
+  };
+  saveDB = async (db) => {
+    try {
+      await savePostgres(db);
+    } catch (err) {
+      console.error('[storage] PostgreSQL falló en save, usando JSON local. Error:', err.message);
+      saveJSON(db);
+    }
+  };
 } else {
   loadDB = async () => loadJSON();
   saveDB = async (db) => saveJSON(db);
 }
 
-// ── Funciones originales convertidas a async (pero adaptando llamadas a db) ──
+// ── Funciones originales convertidas a async ───────────────
 async function getSim(db, simId) { return db.simulaciones[simId] || null; }
 async function listSims(db) { return Object.entries(db.simulaciones).map(([id, s]) => ({ id, ...s })); }
 async function createSim(db, nombre, descripcion='', totalRounds=20, copyFromSimId=null) {
