@@ -96,6 +96,33 @@ body {
   box-shadow: var(--shadow);
 }
 
+/* Contenedor de los tres logotipos encima del icono jabón */
+.logos-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* Cada logotipo (tamaño pequeño) */
+.login-logo-img {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+  background: white;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+/* Responsive: en móviles aún más pequeño */
+@media (max-width: 480px) {
+  .login-logo-img {
+    height: 35px;
+  }
+}
+
 .login-logo {
   font-size: 48px;
   text-align: center;
