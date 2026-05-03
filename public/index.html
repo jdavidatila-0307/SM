@@ -106,20 +106,29 @@
       </div>
     </div>
     <nav class="nav">
-      <button class="nav-item active" data-view="admin-simulaciones">🎮 Simulaciones</button>
-      <button class="nav-item" data-view="admin-dashboard">📊 Dashboard</button>
-      <button class="nav-item" data-view="admin-equipos">👥 Equipos</button>
-      <button class="nav-item" data-view="admin-profesores">👨‍🏫 Profesores</button>
-      <button class="nav-item" data-view="admin-rondas">🔄 Rondas</button>
-      <button class="nav-item" data-view="admin-resultados">📈 Resultados</button>
-      <button class="nav-item" data-view="admin-creditos">🏦 Créditos</button>
-      <button class="nav-item" data-view="admin-mercado">🌍 Mercado</button>
-      <button class="nav-item" data-view="admin-parametros">⚙️ Parámetros</button>
-      <button class="nav-item" data-view="admin-segmentos">🎯 Segmentos</button>
-      <button class="nav-item" data-view="admin-afinidad">🔢 Afinidad</button>
-      <button class="nav-item" data-view="admin-competencia">🤝 Competencia</button>
-      
-    </nav>
+        <!-- Profesores (solo visible para superadmin) -->
+        <button class="nav-item" data-view="admin-profesores">👨‍🏫 Profesores</button>
+        <!-- Simulaciones y gestión general -->
+        <button class="nav-item" data-view="admin-simulaciones">🎮 Simulaciones</button>
+        <button class="nav-item" data-view="admin-dashboard">📊 Dashboard</button>
+        <button class="nav-item" data-view="admin-equipos">👥 Equipos</button>
+        <button class="nav-item" data-view="admin-rondas">🔄 Rondas</button>
+
+        <!-- Separador: Reportes del SimMkt -->
+        <div class="nav-divider">Reportes del SimMkt</div>
+
+        <button class="nav-item" data-view="admin-resultados">📈 Resultados</button>
+        <button class="nav-item" data-view="admin-creditos">🏦 Créditos</button>
+        <button class="nav-item" data-view="admin-mercado">🌍 Mercado</button>
+
+        <!-- Separador: Parámetros del SimMkt -->
+        <div class="nav-divider">Parámetros del SimMkt</div>
+
+        <button class="nav-item" data-view="admin-parametros">⚙️ Parámetros</button>
+        <button class="nav-item" data-view="admin-segmentos">🎯 Segmentos</button>
+        <button class="nav-item" data-view="admin-afinidad">🔢 Afinidad</button>
+        <button class="nav-item" data-view="admin-competencia">🤝 Competencia</button>
+      </nav>
     <div class="sidebar-footer">
       <div id="simBadge" class="badge" style="cursor:pointer" onclick="document.querySelector('[data-view=admin-simulaciones]')?.click()">🎮 Sin simulación activa</div>
       <div class="round-badge" id="adminRoundBadge">Ronda —/20</div>
