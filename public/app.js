@@ -3100,3 +3100,243 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+// ========== MANUAL DEL ESTUDIANTE (HTML + lógica) ==========
+const manualHTML = `
+<div style="font-family:'Georgia', 'Times New Roman', serif; background:#0F1117; color:#E8E0D0; min-height:100vh;">
+  <!-- Barra de navegación superior -->
+  <div style="position:sticky; top:0; z-index:100; background: linear-gradient(90deg, #1A1D27 0%, #232840 100%); border-bottom:2px solid #C9A84C; padding:0;">
+    <div style="display:flex; overflow-x:auto; gap:0; padding:0 12px;" id="manualTabs">
+      <button data-tab="0" class="manual-tab-btn" style="background:rgba(201,168,76,0.15); border:none; border-bottom:3px solid #C9A84C; color:#C9A84C; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>◈</span><span>Portada</span></button>
+      <button data-tab="1" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>①</span><span>Fundamentos</span></button>
+      <button data-tab="2" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>②</span><span>KPIs</span></button>
+      <button data-tab="3" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>③</span><span>Decisiones</span></button>
+      <button data-tab="4" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>④</span><span>Flujo</span></button>
+      <button data-tab="5" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>⑤</span><span>Herramientas</span></button>
+      <button data-tab="6" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>⑥</span><span>Reflexión</span></button>
+      <button data-tab="7" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>⑦</span><span>Informe Final</span></button>
+      <button data-tab="8" class="manual-tab-btn" style="background:transparent; border:none; border-bottom:3px solid transparent; color:#9A9080; cursor:pointer; padding:14px 16px 11px; font-size:11px; font-family:'Georgia',serif; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:2px;"><span>⑧</span><span>Bibliografía</span></button>
+    </div>
+  </div>
+
+  <!-- Contenedor de contenido -->
+  <div style="max-width:860px; margin:0 auto; padding:0 16px 60px;" id="manualContentContainer">
+    <!-- cada sección se cargará dinámicamente -->
+  </div>
+  <div style="border-top:1px solid rgba(201,168,76,0.1); padding:16px; text-align:center; font-size:11px; color:#504840;">SimMkt · Manual del Estudiante · Fundamentado en literatura científica clásica y actualizada</div>
+</div>
+`;
+
+// Secciones del manual (en orden)
+const manualSections = [
+  // Portada
+  `<div style="min-height:88vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:40px 20px; position:relative;">
+    <div style="position:absolute; inset:0; overflow:hidden; pointer-events:none;">${[...Array(6)].map((_, i) => `<div style="position:absolute; width:${120 + i * 60}px; height:${120 + i * 60}px; border:1px solid rgba(201,168,76,0.06); border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%);"></div>`).join('')}</div>
+    <div style="background:rgba(201,168,76,0.12); border:1px solid rgba(201,168,76,0.4); border-radius:20px; padding:6px 18px; font-size:11px; letter-spacing:2px; color:#C9A84C; margin-bottom:32px;">Manual del Estudiante · Versión Académica</div>
+    <div style="font-size:clamp(42px,10vw,72px); font-weight:bold; color:#F0E8D8; line-height:1.1; margin-bottom:8px;">SimMkt</div>
+    <div style="font-size:clamp(14px,3vw,20px); color:#C9A84C; letter-spacing:4px; text-transform:uppercase; margin-bottom:28px;">Simulador de Marketing Estratégico</div>
+    <div style="width:80px; height:2px; background:linear-gradient(90deg, transparent, #C9A84C, transparent); margin:0 auto 28px;"></div>
+    <div style="font-size:16px; color:#B8A898; line-height:1.7; max-width:540px; margin-bottom:48px;">Una guía integral para desenvolverse con criterio estratégico en el mercado simulado de jaboncillos en Bolivia, fundamentada en literatura científica clásica y actualizada.</div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:100%; max-width:480px;">
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:14px 10px; font-size:12px; color:#C8C0B0;"><span style="font-size:22px; font-weight:bold; color:#C9A84C; display:block;">20</span>Rondas</div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:14px 10px; font-size:12px; color:#C8C0B0;"><span style="font-size:22px; font-weight:bold; color:#C9A84C; display:block;">10</span>Decisiones clave</div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:14px 10px; font-size:12px; color:#C8C0B0;"><span style="font-size:22px; font-weight:bold; color:#C9A84C; display:block;">37+</span>Referencias</div>
+    </div>
+    <div style="margin-top:48px; font-size:12px; color:#504840; letter-spacing:1px;">Basado en Porter · Kotler · Kaplan & Norton · Tirole · Damodaran</div>
+  </div>`,
+
+  // Capítulo 1: Fundamentos
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 1</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Propósito y Fundamento Teórico</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">SimMkt no es un juego de azar. Es un laboratorio estratégico donde cada decisión tiene consecuencias medibles y explicables.</div></div>
+    <div style="font-size:15px; line-height:1.8; color:#C8C0B0; margin-bottom:20px;"><strong style="color:#F0E8D8;">SimMkt</strong> es un simulador de gestión estratégica de marketing basado en la <strong style="color:#C9A84C;">teoría de juegos</strong> y la <strong style="color:#C9A84C;">competencia dinámica en oligopolios</strong> (Tirole, 1988; Shapiro & Varian, 2013). El mercado de jaboncillos en Bolivia es modelado con múltiples segmentos, productos diferenciados y competidores externos.</div>
+    <div style="font-size:15px; line-height:1.8; color:#C8C0B0; margin-bottom:20px;">El objetivo no es maximizar una única métrica, sino <strong style="color:#F0E8D8;">construir una ventaja competitiva sostenible</strong> mientras se mantiene la viabilidad financiera a lo largo de las 20 rondas.</div>
+    <div style="background:rgba(201,168,76,0.07); border:1px solid rgba(201,168,76,0.25); border-left:4px solid #C9A84C; padding:18px 20px; margin-bottom:24px;"><div style="font-size:11px; letter-spacing:2px; color:#C9A84C; margin-bottom:8px;">Principio rector</div><div style="font-size:14px; color:#C8C0B0; line-height:1.6;">La coherencia estratégica y la capacidad de adaptación son más valiosas que los valores absolutos de cualquier KPI al final de la simulación.</div></div>
+    <div style="margin-top:32px; margin-bottom:16px; font-size:13px; letter-spacing:2px; color:#C9A84C;">Literatura de Base</div>
+    ${[
+      { ref: "Porter, M. E. (1980)", title: "Competitive Strategy", desc: "Fuerzas competitivas y la elección entre liderazgo en costos o diferenciación." },
+      { ref: "Kaplan & Norton (1996)", title: "The Balanced Scorecard", desc: "Medición del desempeño más allá de lo financiero." },
+      { ref: "Tirole, J. (1988/2019)", title: "Theory of Industrial Organization", desc: "Interacciones estratégicas entre pocos competidores." },
+      { ref: "Day, G. S. (2011)", title: "Closing the Marketing Capabilities Gap", desc: "Capacidades dinámicas en marketing. Journal of Marketing, 75(4)." },
+    ].map(item => `<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:20px; margin-bottom:14px; display:flex; gap:16px;"><div style="min-width:4px; background:#C9A84C; border-radius:2px;"></div><div><div style="font-size:14px; font-weight:bold; color:#7EB8A4;">${item.ref} — <em>${item.title}</em></div><div style="font-size:13px; color:#A09080; line-height:1.6;">${item.desc}</div></div></div>`).join('')}
+  </div>`,
+
+  // Capítulo 2: KPIs
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 2</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Indicadores de Desempeño (KPIs)</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">No existe un valor "óptimo" universal. Compara siempre con la evolución de tu empresa y la tendencia del mercado.</div></div>
+    <div style="font-size:15px; line-height:1.8; color:#C8C0B0; margin-bottom:20px;">El simulador genera automáticamente los siguientes KPIs al cierre de cada ronda. La lectura aislada puede ser engañosa; se requiere cruzar al menos dos métricas.</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-bottom:32px;">
+      ${[
+        { name: "Market Share", formula: "Ventas empresa / ventas totales del segmento", uso: "Mide poder competitivo; combinable con margen (BCG dinámica)", ref: "Henderson (1970/2013); Buzzell & Gale (1987)", color: "#C9A84C" },
+        { name: "EBIT", formula: "Ventas netas − costos totales (exc. intereses e impuestos)", uso: "Rentabilidad operacional; útil para comparar con ROIC", ref: "Damodaran (2012)", color: "#7EB8A4" },
+        { name: "ROI de Marketing", formula: "(Ventas netas − CV − Gasto Mkt) / Gasto Mkt", uso: "Eficiencia del presupuesto de marketing", ref: "Hanssens (2015); Srinivasan & Hanssens (2009)", color: "#C97B4B" },
+        { name: "Caja Final", formula: "Flujo de efectivo operativo + inversión + financiamiento", uso: "Liquidez; comparar con capital de trabajo necesario", ref: "Brigham & Houston (2019)", color: "#8A84C9" },
+        { name: "Endeudamiento", formula: "Deuda total / Activos totales", uso: "Riesgo financiero; apalancamiento óptimo no es universal", ref: "Modigliani & Miller (1958); Graham & Leary (2011)", color: "#C9606A" },
+        { name: "Rot. de Inventario", formula: "Ventas / Inventario promedio", uso: "Eficiencia operativa; indica obsolescencia o stock-out", ref: "Slack et al. (2016); Nahmias & Olsen (2015)", color: "#5BA8C9" },
+      ].map(k => `<div style="background:rgba(255,255,255,0.03); border:1px solid ${k.color}30; border-top:3px solid ${k.color}; border-radius:12px; padding:20px;"><div style="font-size:14px; font-weight:bold; color:${k.color};">${k.name}</div><div style="font-size:12px; font-family:monospace; background:rgba(0,0,0,0.3); border-radius:6px; padding:8px 10px; color:#D8D0C0; margin-bottom:10px;">${k.formula}</div><div style="font-size:12px; color:#A09080; margin-bottom:8px;">${k.uso}</div><div style="font-size:11px; color:#706860; font-style:italic;">📚 ${k.ref}</div></div>`).join('')}
+    </div>
+    <div style="background:rgba(201,168,76,0.07); border:1px solid rgba(201,168,76,0.25); border-left:4px solid #C9A84C; padding:18px 20px;"><div style="font-size:11px; letter-spacing:2px; color:#C9A84C; margin-bottom:8px;">Tip estratégico</div><div style="font-size:14px; color:#C8C0B0; line-height:1.6;">Combine Market Share con EBIT para identificar si su crecimiento en participación está siendo rentable, o si está ganando mercado a costa del margen. Esta lógica refleja la matriz BCG dinámica (Henderson, 1970).</div></div>
+  </div>`,
+
+  // Capítulo 3: Decisiones (con acordeón)
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 3</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Decisiones Estratégicas</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">Cada variable es un lever de gestión. Toca uno y los demás reaccionan. La maestría está en encontrar el equilibrio sistémico.</div></div>
+    <div id="manualDecisionsContainer">
+      ${[
+        { num: "3.1", title: "Segmento y Posicionamiento", icon: "🎯", body: "No existe el mejor segmento; cada uno tiene estructura de costos y sensibilidad diferente. Utilice el reporte de investigación para conocer tendencia (alto crecimiento, creciente, estable) y presión del contrabando.", clasico: "Kotler & Keller (2016) — Segmentación psicográfica", actual: "Lemon & Verhoef (2016) — Customer Journey en Journal of Marketing" },
+        { num: "3.2", title: "Calidad y Diferenciación", icon: "💎", body: "La calidad impacta el costo unitario (+0,20 Bs por punto sobre 5) y el atractivo competitivo. El óptimo depende de la elasticidad precio del segmento; no siempre conviene maximizar calidad.", clasico: "Aaker (1996) — Building Strong Brands", actual: "Mizik (2014) — Impacto financiero del brand equity, JMR" },
+        { num: "3.3", title: "Precio", icon: "💰", body: "Función de demanda con sensibilidad variable. Precios bajos generan volumen pero erosionan margen; precios altos solo son sostenibles con diferenciación real.", clasico: "Nagle & Hogan (2006); Tellis (1986)", actual: "Rao (2015) — Handbook of Pricing Research" },
+        { num: "3.4", title: "Canales de Distribución", icon: "🔗", body: "Seleccione uno o dos canales (principal y secundario). Afecta costo, comisión e impacto de vendedores. Consulte el reporte de investigación para el canal preferido de cada segmento.", clasico: "Stern & Weitz (1997) — Diseño del canal", actual: "Neslin & Shankar (2009) — Multichannel, J. Interactive Marketing" },
+        { num: "3.5", title: "Mix Promocional", icon: "📣", body: "Publicidad, promoción, eventos, redes sociales y RR.PP. tienen rendimientos decrecientes. El simulador calcula un atractivo integrado con todos estos esfuerzos.", clasico: "Rust et al. (2004) — Return on Marketing, JM", actual: "Sethuraman, Tellis & Briesch (2011) — JMR" },
+        { num: "3.6", title: "Fuerza de Ventas", icon: "🤝", body: "Los vendedores aumentan el atractivo, especialmente en canales con alto factor de impacto. Cada vendedor adicional incrementa costos fijos.", clasico: "—", actual: "Albers (2012) — Optimizing Salesforce, Handbook B2B Marketing" },
+        { num: "3.7", title: "Producción e Inventarios", icon: "🏭", body: "Costo unitario se reduce por economías de escala. Sin embargo, producir en exceso genera costos de almacenamiento (0,10 Bs/unidad) y riesgo de obsolescencia.", clasico: "Womack et al. (1990) — Lean Production", actual: "Christopher (2016) — Logistics & Supply Chain" },
+        { num: "3.8", title: "Financiamiento", icon: "🏦", body: "Préstamos operativos (4% trimestral) o de inversión (3% trimestral). Comisión de apertura: 1%. Amortizar deuda reduce apalancamiento y riesgo.", clasico: "Altman (1968) — Bankruptcy Prediction, JoF", actual: "Graham & Leary (2011) — Capital Structure, ARFE" },
+        { num: "3.9", title: "Innovación", icon: "⚗️", body: "Invierta en innovación de producto (↑ costo unitario), proceso (↓ costo unitario) o canal (↑ atractivo). Alinee con su estrategia: diferenciación o liderazgo en costos.", clasico: "Henderson & Clark (1990) — Architectural Innovation, ASQ", actual: "Teece (2018) — Business Models & Dynamic Capabilities, LRP" },
+        { num: "3.10", title: "Investigación de Mercado", icon: "🔍", body: "Reporte básico (4.000 Bs): tamaño de mercado, precios y alertas. Reporte premium (7.500 Bs): participación por segmento, sensibilidad del consumidor y recomendaciones.", clasico: "Akerlof (1970) — The Market for Lemons, QJE", actual: "Simchi-Levi et al. (2014) — Value of Information, Management Science" },
+      ].map(d => `<div class="decision-item" data-decision="${d.num}" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07); border-radius:12px; margin-bottom:10px; overflow:hidden;"><div class="decision-header" style="padding:16px 20px; cursor:pointer; display:flex; align-items:center; gap:14px;"><div style="font-size:11px; color:#C9A84C; min-width:28px;">${d.num}</div><div style="font-size:20px;">${d.icon}</div><div style="font-size:15px; color:#E8E0D0; font-weight:bold; flex:1;">${d.title}</div><div class="decision-arrow" style="color:#C9A84C; font-size:12px; transition:transform 0.2s;">▼</div></div><div class="decision-body" style="display:none; padding:0 20px 20px 62px;"><div style="font-size:14px; color:#C0B8A8; line-height:1.7; margin-bottom:14px;">${d.body}</div><div style="display:flex; gap:10px; flex-wrap:wrap;">${d.clasico !== "—" ? `<span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(201,168,76,0.12); border:1px solid rgba(201,168,76,0.3); color:#C9A84C;">📖 Clásico: ${d.clasico}</span>` : ''}<span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(126,184,164,0.12); border:1px solid rgba(126,184,164,0.3); color:#7EB8A4;">🔬 Actual: ${d.actual}</span></div></div></div>`).join('')}
+    </div>
+  </div>`,
+
+  // Capítulo 4: Flujo
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 4</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Flujo del Proceso de Simulación</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">Cada ronda sigue el mismo ciclo. Entender el flujo reduce errores operativos y libera energía para el análisis estratégico.</div></div>
+    <div style="position:relative; padding-left:20px;"><div style="position:absolute; left:28px; top:20px; bottom:20px; width:2px; background:linear-gradient(180deg, #C9A84C, rgba(201,168,76,0.1));"></div>
+      ${[
+        { n: "01", title: "Apertura de ronda", desc: "El profesor abre la ronda y se cargan los saldos del trimestre anterior." },
+        { n: "02", title: "Ingreso de decisiones", desc: "El equipo registra sus decisiones estratégicas. Puede guardar borrador y enviar dentro del plazo." },
+        { n: "03", title: "Pre-simulación (opt.)", desc: "El profesor calcula la demanda estimada y la notifica. El equipo confirma la recepción explícitamente." },
+        { n: "04", title: "Simulación final", desc: "Se ejecuta el cálculo de atractivos, cuota de mercado, ventas reales y estados financieros." },
+        { n: "05", title: "Consulta de resultados", desc: "El equipo revisa P&L, balance, flujo de caja, reportes de investigación y ranking anónimo." },
+        { n: "06", title: "Nueva ronda", desc: "El profesor abre la siguiente ronda. Las decisiones se pre-cargan pero pueden modificarse." },
+      ].map(s => `<div style="display:flex; gap:20px; align-items:flex-start; margin-bottom:28px; position:relative;"><div style="min-width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, #C9A84C, #A07830); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; color:#0F1117; z-index:1;">${s.n}</div><div><div style="font-size:15px; font-weight:bold; color:#F0E8D8; margin-bottom:4px;">${s.title}</div><div style="font-size:13px; color:#9A9080; line-height:1.6;">${s.desc}</div></div></div>`).join('')}
+    </div>
+  </div>`,
+
+  // Capítulo 5: Herramientas
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 5</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Herramientas Analíticas</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">No son obligatorias, pero fundamentan decisiones y elevan la calidad del informe final.</div></div>
+    ${[
+      { title: "Análisis de Elasticidad Precio", desc: "% cambio en ventas / % cambio en precio. Si no dispones de datos propios, observa los reportes de precios y sensibilidad del simulador.", color: "#C9A84C" },
+      { title: "Punto de Equilibrio", desc: "Costos fijos totales / (Precio − Costo variable unitario). Útil para fijar la producción mínima viable en cada ronda.", color: "#7EB8A4" },
+      { title: "Matriz BCG Adaptada a Segmentos", desc: "Evalúa cada segmento según su tasa de crecimiento y tu participación relativa para priorizar la asignación de recursos.", color: "#C97B4B" },
+      { title: "Análisis DAFO por Ronda", desc: "Fortalezas, Oportunidades, Debilidades y Amenazas actualizadas al inicio de cada trimestre. Permite decisiones situadas en contexto.", color: "#8A84C9" },
+    ].map(t => `<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:20px; margin-bottom:14px; border-top:3px solid ${t.color};"><div style="font-size:14px; font-weight:bold; color:${t.color};">${t.title}</div><div style="font-size:13px; color:#A09080; line-height:1.6;">${t.desc}</div></div>`).join('')}
+    <div style="background:rgba(201,168,76,0.07); border:1px solid rgba(201,168,76,0.25); border-left:4px solid #C9A84C; padding:18px 20px;"><div style="font-size:11px; letter-spacing:2px; color:#C9A84C; margin-bottom:8px;">Referencia práctica</div><div style="font-size:14px; color:#C8C0B0; line-height:1.6;">Grant, R. M. (2016, 7ª ed.). <em>Contemporary Strategy Analysis</em>. Wiley. — Marco integrador para aplicar todas las herramientas en secuencia lógica.</div></div>
+  </div>`,
+
+  // Capítulo 6: Reflexión
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 6</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Preguntas para la Reflexión Estratégica</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">Antes de cada ronda, dedica 5 minutos a responder estas preguntas. Las respuestas guían las decisiones; las preguntas sin respuesta revelan los riesgos ocultos.</div></div>
+    <div style="display:grid; grid-template-columns:1fr; gap:12px;">
+      ${[
+        "¿El segmento que elegí mantiene su atractivo dados los cambios en tendencia o contrabando?",
+        "¿La calidad y el precio están alineados con la percepción de valor del segmento?",
+        "¿Estoy produciendo lo suficiente para no perder ventas, pero no tanto como para acumular inventario caro?",
+        "¿El nivel de deuda actual permite tomar más riesgo o conviene reducir gastos financieros?",
+        "¿La innovación elegida (producto, proceso, canal) refuerza mi ventaja competitiva?",
+        "¿Qué reporte de investigación me aporta información que realmente cambiará mi decisión?",
+      ].map(q => `<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:16px 20px; display:flex; gap:14px;"><div style="font-size:22px; color:#C9A84C;">?</div><div style="font-size:14px; color:#C0B8A8; line-height:1.6;">${q}</div></div>`).join('')}
+    </div>
+  </div>`,
+
+  // Capítulo 7: Informe Final
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 7</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Comunicación de Resultados Finales</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">Al concluir las 20 rondas, el equipo presenta un informe estructurado que evidencia aprendizaje estratégico, no solo cifras.</div></div>
+    ${[
+      { title: "1. Evolución de KPIs", desc: "Gráficas de tendencia y análisis de variaciones relevantes a lo largo de las 20 rondas. Identifique los puntos de inflexión y sus causas.", icon: "📊" },
+      { title: "2. Decisiones Críticas y Justificación", desc: "Explique las decisiones más importantes tomadas, vinculándolas con la literatura del manual. La bibliografía debe estar en formato APA 7ª edición.", icon: "📝" },
+      { title: "3. Lecciones Aprendidas", desc: "Reflexión sobre la dinámica de mercado observada, errores cometidos, adaptaciones realizadas y qué harían diferente en una nueva simulación.", icon: "💡" },
+    ].map(item => `<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:20px; margin-bottom:14px; display:flex; gap:16px;"><div style="font-size:28px;">${item.icon}</div><div><div style="font-size:14px; font-weight:bold; color:#C9A84C;">${item.title}</div><div style="font-size:13px; color:#A09080; line-height:1.6;">${item.desc}</div></div></div>`).join('')}
+    <div style="background:rgba(201,168,76,0.07); border:1px solid rgba(201,168,76,0.25); border-left:4px solid #C9A84C; padding:18px 20px; margin-top:28px;"><div style="font-size:11px; letter-spacing:2px; color:#C9A84C; margin-bottom:8px;">Criterio de evaluación</div><div style="font-size:14px; color:#C8C0B0; line-height:1.6;">Se valorará la <strong style="color:#F0E8D8;">coherencia estratégica</strong> y la <strong style="color:#F0E8D8;">capacidad de aprendizaje</strong>, no el valor absoluto de las métricas finales. Un equipo con bajo market share pero análisis sólido puede superar a uno con altos indicadores sin reflexión crítica.</div></div>
+  </div>`,
+
+  // Capítulo 8: Bibliografía
+  `<div><div style="padding:48px 0 32px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:36px;"><div style="font-size:11px; letter-spacing:3px; color:#C9A84C; margin-bottom:8px;">Capítulo 8</div><div style="font-size:clamp(24px,5vw,36px); color:#F0E8D8; font-weight:bold; line-height:1.2;">Bibliografía Completa</div><div style="margin-top:16px; font-size:15px; color:#A09080; line-height:1.7; font-style:italic;">Literatura clásica y actualizada que sustenta el diseño del simulador y el marco de análisis estratégico.</div></div>
+    <ul style="list-style:none; padding:0;">
+      ${[
+        "Aaker, D. A. (1996). Building Strong Brands. Free Press.",
+        "Akerlof, G. A. (1970). The Market for 'Lemons'. Quarterly Journal of Economics, 84(3), 488–500.",
+        "Albers, S. (2012). Optimizing Salesforce Performance. Handbook of B2B Marketing. Edward Elgar.",
+        "Altman, E. I. (1968). Financial Ratios, Discriminant Analysis and the Prediction of Corporate Bankruptcy. Journal of Finance, 23(4), 589–609.",
+        "Brigham, E. F. & Houston, J. F. (2019). Fundamentos de Administración Financiera (15ª ed.). Cengage.",
+        "Buzzell, R. D. & Gale, B. T. (1987). The PIMS Principles. Free Press.",
+        "Christopher, M. (2016). Logistics & Supply Chain Management (5ª ed.). Pearson.",
+        "Damodaran, A. (2012). Investment Valuation (3ª ed.). Wiley.",
+        "Danneels, E. (2002). The Dynamics of Product Innovation and Firm Competences. Strategic Management Journal, 23(12), 1095–1121.",
+        "Day, G. S. (2011). Closing the Marketing Capabilities Gap. Journal of Marketing, 75(4), 183–195.",
+        "Fisher, M. L. (1997). What Is the Right Supply Chain for Your Product? Harvard Business Review, 75(2), 105–116.",
+        "Graham, J. R. & Leary, M. T. (2011). A Review of Empirical Capital Structure Research. Annual Review of Financial Economics, 3, 309–345.",
+        "Grant, R. M. (2016). Contemporary Strategy Analysis (9ª ed.). Wiley.",
+        "Hanssens, D. M. (2015). Marketing Analytics. MSI.",
+        "Henderson, B. (1970). The Experience Curve. BCG Perspectives (reeditado 2013).",
+        "Henderson, R. M. & Clark, K. B. (1990). Architectural Innovation. Administrative Science Quarterly, 35(1), 9–30.",
+        "Kaplan, R. S. & Norton, D. P. (1996). The Balanced Scorecard. Harvard Business School Press.",
+        "Kotler, P. & Keller, K. L. (2016). Marketing Management (15ª ed.). Pearson.",
+        "Lemon, K. N. & Verhoef, P. C. (2016). Understanding Customer Experience Throughout the Customer Journey. Journal of Marketing, 80(6), 69–96.",
+        "Mizik, N. (2014). Assessing the Total Financial Performance Impact of Brand Equity. Journal of Marketing Research, 51(3), 274–292.",
+        "Modigliani, F. & Miller, M. H. (1958). The Cost of Capital, Corporation Finance and the Theory of Investment. American Economic Review, 48(3), 261–297.",
+        "Nagle, T. & Hogan, J. (2006). The Strategy and Tactics of Pricing (5ª ed.). Prentice Hall.",
+        "Nahmias, S. & Olsen, T. L. (2015). Production and Operations Analysis (7ª ed.). Waveland Press.",
+        "Neslin, S. A. & Shankar, V. (2009). Key Issues in Multichannel Customer Management. Journal of Interactive Marketing, 23(1), 70–81.",
+        "Porter, M. E. (1980). Competitive Strategy. Free Press.",
+        "Rao, V. R. (ed.) (2015). Handbook of Pricing Research in Marketing. Edward Elgar.",
+        "Rust, R. T. et al. (2004). Return on Marketing. Journal of Marketing, 68(4), 76–89.",
+        "Sethuraman, R., Tellis, G. J. & Briesch, R. A. (2011). How Well Does Advertising Work? Journal of Marketing Research, 48(3), 457–471.",
+        "Shapiro, C. & Varian, H. R. (2013). Information Rules. Harvard Business Review Press.",
+        "Simchi-Levi, D. et al. (2014). The Value of Information in Supply Chain Management. Management Science, 60(2), 311–322.",
+        "Slack, N. et al. (2016). Operations Management (8ª ed.). Pearson.",
+        "Srinivasan, S. & Hanssens, D. M. (2009). Marketing and Firm Value. MSI Working Paper.",
+        "Teece, D. J. (2018). Business Models and Dynamic Capabilities. Long Range Planning, 51(1), 40–49.",
+        "Tellis, G. J. (1986). Beyond the Many Faces of Price. Journal of Marketing, 50(4), 146–160.",
+        "Tirole, J. (1988/2019). The Theory of Industrial Organization. MIT Press.",
+        "Vakratsas, D. & Ambler, T. (1999). How Advertising Works. Journal of Marketing, 63(1), 26–43.",
+        "Womack, J. et al. (1990). The Machine That Changed the World. Rawson Associates.",
+      ].map(b => `<li style="font-size:13px; color:#A09080; line-height:1.7; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); padding-left:20px; position:relative;"><span style="position:absolute; left:0; color:#C9A84C; font-size:10px; top:13px;">◆</span>${b}</li>`).join('')}
+    </ul>
+  </div>`
+];
+
+// Funciones para inicializar manual
+function initManual() {
+  const container = document.getElementById('manualContentContainer');
+  if (!container) return;
+  let activeTab = 0;
+
+  function renderTab(index) {
+    container.innerHTML = manualSections[index];
+    if (index === 3) initManualAccordion(); // re-initialize accordion for decisions
+  }
+
+  // Configurar pestañas
+  const tabs = document.querySelectorAll('#manualTabs .manual-tab-btn');
+  tabs.forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => {
+        b.style.background = 'transparent';
+        b.style.borderBottom = '3px solid transparent';
+        b.style.color = '#9A9080';
+      });
+      btn.style.background = 'rgba(201,168,76,0.15)';
+      btn.style.borderBottom = '3px solid #C9A84C';
+      btn.style.color = '#C9A84C';
+      activeTab = i;
+      renderTab(activeTab);
+    });
+  });
+  // Simular clic en primera pestaña para cargar portada
+  if (tabs[0]) tabs[0].click();
+}
+
+function initManualAccordion() {
+  const items = document.querySelectorAll('.decision-item');
+  items.forEach(item => {
+    const header = item.querySelector('.decision-header');
+    const body = item.querySelector('.decision-body');
+    const arrow = item.querySelector('.decision-arrow');
+    if (!header) return;
+    header.addEventListener('click', () => {
+      const isOpen = body.style.display === 'block';
+      body.style.display = isOpen ? 'none' : 'block';
+      arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+      item.style.background = isOpen ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)';
+      item.style.borderColor = isOpen ? 'rgba(255,255,255,0.07)' : 'rgba(201,168,76,0.4)';
+    });
+  });
+}
+
+// Llamar a initManual cuando se cargue el DOM
+document.addEventListener('DOMContentLoaded', () => {
+  // Si el contenedor existe, inicializar
+  if (document.getElementById('manualContentContainer')) initManual();
+});
