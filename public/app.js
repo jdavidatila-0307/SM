@@ -3049,6 +3049,133 @@ function printHoja() {
   win.document.close();
 }
 
+// ============================
+// ADMIN - Gestión de Profesores
+// ============================
+
+async function loadAdminProfesores() {
+  const container = document.getElementById('profesoresContent');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">Cargando...</div>';
+  try {
+    const profesores = await api('GET', '/admin/usuarios');
+    renderProfesores(container, profesores);
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+function renderProfesores(container, profesores) {
+  if (!profesores.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👨‍🏫</div>
+        <p>No hay profesores registrados.</p>
+      </div>
+      ${formAgregarProfesor()}
+    `;
+    return;
+  }
+
+  const rows = profesores.map(prof => `
+    <table>
+      <td><strong>${escapeHtml(prof.nombre)}</strong><br><span style="font-size:.7rem;color:var(--text3)">${prof.id}</span></td>
+      <td>${escapeHtml(prof.email || '—')}</td>
+      <td style="font-size:.78rem">${fmt.dt(prof.creado_at)}</td>
+      <td style="text-align:center">
+        <button class="btn btn-danger btn-sm" onclick="eliminarProfesor('${prof.id}','${escapeHtml(prof.nombre)}')">✕ Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table style="width:100%">
+        <thead>
+          <tr>
+            <th>Nombre / ID</th>
+            <th>Email</th>
+            <th>Registrado</th>
+            <th style="width:100px">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${formAgregarProfesor()}
+  `;
+
+  const form = document.getElementById('formAgregarProfesor');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('profNombre').value.trim();
+      const email = document.getElementById('profEmail').value.trim();
+      const password = document.getElementById('profPassword').value;
+      if (!nombre || !email || !password) {
+        toast('Complete todos los campos', 'error');
+        return;
+      }
+      try {
+        await api('POST', '/admin/usuarios', { nombre, email, password });
+        toast(`Profesor "${nombre}" creado`, 'success');
+        loadAdminProfesores();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+  }
+}
+
+function formAgregarProfesor() {
+  return `
+    <div class="param-card" style="margin-top:16px">
+      <div class="param-card-title">➕ Agregar nuevo profesor</div>
+      <form id="formAgregarProfesor" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end">
+        <div style="flex:2; min-width:150px">
+          <label class="form-label">Nombre completo</label>
+          <input type="text" id="profNombre" class="form-input" placeholder="Ej: Prof. Juan Pérez" required>
+        </div>
+        <div style="flex:2; min-width:150px">
+          <label class="form-label">Correo electrónico</label>
+          <input type="email" id="profEmail" class="form-input" placeholder="juan@ejemplo.com" required>
+        </div>
+        <div style="flex:1; min-width:120px">
+          <label class="form-label">Contraseña</label>
+          <div class="pw-input-wrap">
+            <input type="password" id="profPassword" class="form-input" placeholder="******" required>
+            <button type="button" class="btn-eye-input" onclick="toggleInputPw('profPassword',this)">👁</button>
+          </div>
+        </div>
+        <div>
+          <button type="submit" class="btn btn-primary">✓ Crear profesor</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+window.eliminarProfesor = async (id, nombre) => {
+  if (!confirm(`¿Eliminar profesor "${nombre}"? Se eliminarán también sus simulaciones. Esta acción no se puede deshacer.`)) return;
+  try {
+    await api('DELETE', `/admin/usuarios/${id}`);
+    toast(`Profesor "${nombre}" eliminado`, 'success');
+    loadAdminProfesores();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
 // ── Logout ─────────────────────────────────────────────────
 async function doLogout() {
   await api('POST','/auth/logout');
