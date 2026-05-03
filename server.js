@@ -336,14 +336,13 @@ async function route(req, res, body) {
     return ok(res, { ok: true });
   }
 
-  // ═══ Todas las rutas siguientes requieren contexto de simulación ═══
-  const sim = await getCurrentSimulation(s);
-  if (!sim && (needAdmin() || needEquipo())) {
-    // Si se requiere simulación y no hay seleccionada, devolver error
-    if (url.startsWith('/admin/') || url.startsWith('/api/')) {
-      return err(res, 400, 'Selecciona una simulación primero');
-    }
+ // ═══ Todas las rutas siguientes requieren contexto de simulación ═══
+const sim = await getCurrentSimulation(s);
+if (!sim && (s?.rol === 'superadmin' || s?.rol === 'profesor' || s?.rol === 'equipo')) {
+  if (url.startsWith('/admin/') || url.startsWith('/api/')) {
+    return err(res, 400, 'Selecciona una simulación primero');
   }
+}
 
   // ─── ADMIN — Equipos ─────────────────────────────────────────
   if (url === '/admin/equipos' && method === 'GET') {
