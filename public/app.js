@@ -90,6 +90,7 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-mercado') loadAdminMercado();
       if (btn.dataset.view === 'admin-parametros') loadAdminParametros();
       if (btn.dataset.view === 'admin-segmentos') loadAdminSegmentos();
+      if (btn.dataset.view === 'admin-profesores') loadAdminProfesores();
       if (btn.dataset.view === 'eq-manual') { buildManual(); }
     });
   });
