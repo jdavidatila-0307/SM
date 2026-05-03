@@ -90,6 +90,7 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-mercado') loadAdminMercado();
       if (btn.dataset.view === 'admin-parametros') loadAdminParametros();
       if (btn.dataset.view === 'admin-segmentos') loadAdminSegmentos();
+      if (btn.dataset.view === 'eq-manual') { buildManual(); }
     });
   });
 }
@@ -101,6 +102,8 @@ function initLogin() {
   document.getElementById('loginId').addEventListener('keydown', e => e.key==='Enter' && doLogin());
   document.getElementById('loginPass').addEventListener('keydown', e => e.key==='Enter' && doLogin());
   document.getElementById('btnLogin').addEventListener('click', doLogin);
+  const btnManual = document.getElementById('btnVerManualLogin');
+  if (btnManual) btnManual.addEventListener('click', buildManual);
   initRegistroUI();
 }
 
@@ -3011,10 +3014,7 @@ function renderEquipoDashboard(el, cmp, miResultado, historial) {
   }
 }
 function buildManual() {
-  const container = document.getElementById('manualContent');
-  if (container) {
-    container.innerHTML = '<div style="padding:20px; text-align:center;">📘 Manual del Estudiante<br>Próximamente disponible en formato PDF.</div>';
-  }
+  window.open('/manual.html', '_blank');
 }
 
 // ── Imprimir Hoja de Decisión ──────────────────────────────
