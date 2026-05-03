@@ -3011,36 +3011,13 @@ function renderEquipoDashboard(el, cmp, miResultado, historial) {
   }
 }
 function buildManual() {
-  document.getElementById('manualContent').innerHTML = `
-    <div class="manual-section"><h3>🎯 Rol y Objetivo</h3>
-      <p>Tu equipo es la <strong>gerencia de marketing</strong> de una empresa de jaboncillos boliviana. Compiten en un mercado de <strong>USD 90M anuales</strong> durante <strong>20 trimestres (5 años)</strong>.</p>
-      <p>Cada trimestre decides: segmento, producto, precios, canal, marketing, producción y financiamiento.</p></div>
-    <div class="manual-section"><h3>📋 Flujo de cada Ronda</h3>
-      <p><strong>1.</strong> El profesor abre la ronda → tus saldos se pre-cargan del trimestre anterior.</p>
-      <p><strong>2.</strong> Completas tus decisiones y presionas <strong>Enviar</strong>.</p>
-      <p><strong>3.</strong> El profesor ejecuta la simulación cuando todos (o el tiempo vence).</p>
-      <p><strong>4.</strong> Ves tus resultados en "Mis Resultados" y los reportes comprados en "Reportes".</p></div>
-    <div class="manual-section"><h3>🔍 Investigaciones de Mercado</h3>
-      <table class="manual-table"><thead><tr><th>Reporte</th><th>Costo</th><th>Revela</th></tr></thead><tbody>
-        <tr><td>📊 Segmentación</td><td>Bs 1,000</td><td>Tamaños, tendencias y demanda formal por segmento</td></tr>
-        <tr><td>💲 Precios</td><td>Bs 1,200</td><td>Precios promedio y rangos aceptables por segmento</td></tr>
-        <tr><td>🔍 Competencia</td><td>Bs 1,500</td><td>Estadísticas agregadas del mercado (sin nombres)</td></tr>
-        <tr><td>📦 Canales</td><td>Bs 800</td><td>Factores de percepción y canal preferido por segmento</td></tr>
-      </tbody></table></div>
-    <div class="manual-section"><h3>⚡ Fórmulas Clave</h3>
-      <p><strong>Atractivo competitivo</strong> = suma ponderada de 6 componentes vs. el competidor externo del segmento.</p>
-      <p><strong>Market share</strong> = Atractivo del equipo ÷ Atractivo total (equipos + competidor externo)</p>
-      <p><strong>Costo unitario</strong> = Costo base × (1 + ΔCalidad×4% + ΔDif×3%) × (1 − Descuento escala)</p>
-      <p><strong>EBIT</strong> = Ingresos − COGS − Personal − Marketing − Investigación − Inventario</p></div>
-    <div class="manual-section"><h3>🏅 Rúbrica (100 pts)</h3>
-      <table class="manual-table"><thead><tr><th>Criterio</th><th>Pts</th></tr></thead><tbody>
-        <tr><td>Coherencia estratégica</td><td>20</td></tr>
-        <tr><td>Resultados comerciales</td><td>20</td></tr>
-        <tr><td>Gestión financiera</td><td>20</td></tr>
-        <tr><td>Uso de investigación</td><td>20</td></tr>
-        <tr><td>Análisis final</td><td>20</td></tr>
-      </tbody></table></div>
-  `;
+  const container = document.getElementById('manualContent');
+  if (container) {
+    container.innerHTML = manualHTML;
+    // Inicializar pestañas y acordeón
+    initManualTabs();
+    initManualAccordion();
+  }
 }
 
 // ── Imprimir Hoja de Decisión ──────────────────────────────
