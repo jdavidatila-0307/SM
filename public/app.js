@@ -117,7 +117,7 @@ async function doLogin() {
   try {
     const data = await api('POST','/auth/login',{id,password:pass});
     state.me = data;
-    if (data.rol === 'admin') await initAdmin();
+   if (data.rol === 'admin' || data.rol === 'superadmin' || data.rol === 'profesor') await initAdmin();
     else await initEquipo();
   } catch(e) {
     errEl.textContent = e.message;
