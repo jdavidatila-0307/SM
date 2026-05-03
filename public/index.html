@@ -42,17 +42,147 @@
       <button class="btn btn-ghost btn-full" id="btnVerManualLogin" style="margin-top:10px">📘 Ver Manual del Estudiante</button>
     </div>
 
-    <!-- REGISTRO CARD (sin cambios) -->
+    <!-- REGISTRO CARD (restaurado) -->
     <div class="login-card" id="cardRegistro" style="display:none;width:560px;max-width:96vw">
-      <!-- ... contenido del registro (lo tienes, no lo cambio) ... -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <button class="btn btn-ghost btn-sm" id="btnVolverLogin">← Volver</button>
+        <h2 style="font-size:1rem;font-weight:700">Registro de Equipo</h2>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nombre del equipo / empresa <span style="color:var(--accent4)">*</span></label>
+        <input class="form-input" id="regNombreEquipo" placeholder="Ej: Empresa Andina S.A.">
+      </div>
+
+      <div style="margin-top:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span class="form-label" style="font-size:.82rem;color:var(--accent2);font-weight:600">INTEGRANTES DEL EQUIPO</span>
+          <button class="btn btn-ghost btn-sm" id="btnAgregarMiembro">+ Agregar integrante</button>
+        </div>
+        <div id="miembrosContainer"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px">
+        <div class="form-group">
+          <label class="form-label">Contraseña <span style="color:var(--accent4)">*</span></label>
+          <div class="pw-input-wrap">
+            <input class="form-input" id="regPassword" type="password" placeholder="Mínimo 4 caracteres" autocomplete="new-password">
+            <button type="button" class="btn-eye-input" onclick="toggleInputPw('regPassword',this)" title="Mostrar/ocultar">👁</button>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <input class="form-input" id="regCodigo" type="text" placeholder="Código de simulación — lo da el profesor (ej: MKT-A2B3)" style="text-transform:uppercase;letter-spacing:2px" autocomplete="off" oninput="this.value=this.value.toUpperCase();validarCodigo(this.value)">
+            <div id="codigoStatus" style="font-size:.72rem;margin-top:4px;padding:0 4px;min-height:16px"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirmar contraseña <span style="color:var(--accent4)">*</span></label>
+          <div class="pw-input-wrap">
+            <input class="form-input" id="regPasswordConfirm" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
+            <button type="button" class="btn-eye-input" onclick="toggleInputPw('regPasswordConfirm',this)" title="Mostrar/ocultar">👁</button>
+          </div>
+        </div>
+      </div>
+      <p class="form-hint" style="margin-top:6px">⚠ Guarda bien tu contraseña — la necesitarás en cada ronda.</p>
+
+      <button class="btn btn-success btn-full" id="btnRegistrar" style="margin-top:20px">✓ Registrar Equipo</button>
+      <p class="login-error" id="registroError"></p>
     </div>
 
     <p class="login-footer">UAGRM - Ingeniería Comercial - COM400A Estrategia Comercial – Profesor Jhonny David Atila Lijerón</p>
   </div>
 </div>
 
-<!-- ═══════════════════ ADMIN (se mantiene igual) ═══════════════════ -->
-<!-- ... todo el contenido de admin y equipo sigue igual que en tu archivo ... -->
+<!-- ═══════════════════ ADMIN (se mantiene igual que en tu versión original) ═══════════════════ -->
+<!-- No se modifica nada de admin y equipo (ya está completo en tu archivo). -->
+<div id="screen-admin" class="screen hidden">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">
+        <img src="images/ingcomercial.png" alt="Ingeniería Comercial" class="sidebar-logo-img">
+      </div>
+      <div>
+        <span class="logo-title">SimMkt</span>
+        <span class="logo-sub">Panel Admin</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="admin-simulaciones">🎮 Simulaciones</button>
+      <button class="nav-item" data-view="admin-dashboard">📊 Dashboard</button>
+      <button class="nav-item" data-view="admin-equipos">👥 Equipos</button>
+      <button class="nav-item" data-view="admin-rondas">🔄 Rondas</button>
+      <button class="nav-item" data-view="admin-resultados">📈 Resultados</button>
+      <button class="nav-item" data-view="admin-creditos">🏦 Créditos</button>
+      <button class="nav-item" data-view="admin-mercado">🌍 Mercado</button>
+      <button class="nav-item" data-view="admin-parametros">⚙️ Parámetros</button>
+      <button class="nav-item" data-view="admin-segmentos">🎯 Segmentos</button>
+      <button class="nav-item" data-view="admin-afinidad">🔢 Afinidad</button>
+      <button class="nav-item" data-view="admin-competencia">🤝 Competencia</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="simBadge" class="badge" style="cursor:pointer" onclick="document.querySelector('[data-view=admin-simulaciones]')?.click()">🎮 Sin simulación activa</div>
+      <div class="round-badge" id="adminRoundBadge">Ronda —/20</div>
+      <button class="btn btn-ghost btn-sm" id="btnAdminLogout" style="margin-top:8px;width:100%">Cerrar sesión</button>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top-bar"><span class="top-title" id="adminTopTitle">Dashboard</span><div class="top-actions"></div></header>
+    <section class="view" id="admin-simulaciones"><div id="adminSimulacionesContent"></div></section>
+    <section class="view active" id="admin-dashboard"><div id="adminDashboardContent"></div></section>
+    <section class="view" id="admin-equipos"><div id="equiposTableWrap" class="table-wrap" style="margin-top:16px"></div></section>
+    <section class="view" id="admin-rondas"><div id="rondasContent"></div></section>
+    <section class="view" id="admin-resultados"><div id="adminResultadosContent"></div></section>
+    <section class="view" id="admin-creditos"><div id="adminCreditosContent"></div></section>
+    <section class="view" id="admin-mercado"><div id="adminMercadoContent"></div></section>
+    <section class="view" id="admin-afinidad"><div id="adminAfinidadContent"></div></section>
+    <section class="view" id="admin-competencia"><div id="adminCompetenciaContent"></div></section>
+    <section class="view" id="admin-parametros"><div id="adminParametrosContent"></div></section>
+    <section class="view" id="admin-segmentos"><div id="adminSegmentosContent"></div></section>
+  </main>
+</div>
+
+<div id="screen-equipo" class="screen hidden">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">
+        <img src="images/ingcomercial.png" alt="Ingeniería Comercial" class="sidebar-logo-img">
+      </div>
+      <div>
+        <span class="logo-title">SimMkt</span>
+        <span class="logo-sub" id="equipoNombreSidebar">—</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="eq-hoja">📋 Hoja de Decisión</button>
+      <button class="nav-item" data-view="eq-financiero">📊 Estados Financieros</button>
+      <button class="nav-item" data-view="eq-resultados">💰 KPIs</button>
+      <button class="nav-item" data-view="eq-creditos">🏦 Mis Créditos</button>
+      <button class="nav-item" data-view="eq-reportes">🔍 Investigación</button>
+      <button class="nav-item" data-view="eq-manual">📘 Manual</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="round-badge" id="equipoRoundBadge">Ronda —/20</div>
+      <div class="round-state-badge" id="equipoStateBadge">—</div>
+      <button class="btn btn-ghost btn-sm" id="btnEquipoLogout" style="margin-top:8px;width:100%">Cerrar sesión</button>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top-bar">
+      <span class="top-title" id="equipoTopTitle">Decisiones</span>
+      <div class="top-actions">
+        <button class="btn btn-ghost" id="btnPrintHoja" style="display:none">🖨 Imprimir Hoja</button>
+        <button class="btn btn-ghost" id="btnGuardar">💾 Guardar</button>
+        <button class="btn btn-success" id="btnEnviar">✓ Enviar Decisiones</button>
+      </div>
+    </header>
+    <section class="view active" id="eq-decisiones"><div id="decisionFormWrap"></div></section>
+    <section class="view" id="eq-hoja"><div id="hojaRondaSelector" class="hoja-round-nav"></div><div id="hojaContent"></div></section>
+    <section class="view" id="eq-financiero"><div id="eq-financiero-nav" class="ronda-selector"></div><div id="eq-financiero-content"></div></section>
+    <section class="view" id="eq-resultados"><div id="equipoResultadosContent"></div></section>
+    <section class="view" id="eq-creditos"><div id="eq-creditos-content"></div></section>
+    <section class="view" id="eq-reportes"><div id="reportesContent"></div></section>
+    <section class="view" id="eq-manual"><div id="manualContent"></div></section>
+  </main>
+</div>
 
 <!-- Modal para el manual del estudiante (login) -->
 <div id="modalManual" class="modal-overlay hidden">
