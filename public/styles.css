@@ -96,7 +96,7 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* Contenedor de los tres logotipos encima del icono jabón */
+/* Contenedor de los tres logotipos (sin icono jabón) */
 .logos-container {
   display: flex;
   justify-content: center;
@@ -106,7 +106,7 @@ body {
   flex-wrap: wrap;
 }
 
-/* Cada logotipo - 20% más grande que antes (de ~52px a ~62px) */
+/* Estilos base para todos los logos */
 .login-logo-img {
   height: 62px;
   width: auto;
@@ -122,21 +122,25 @@ body {
   transform: scale(1.02);
 }
 
-/* Responsive: en móviles un 20% más grandes también (de 40px a 48px) */
+/* Aumentar tamaño solo para UAGRM y Ciencias Económicas (20% más) */
+.login-logo-img[alt="UAGRM"],
+.login-logo-img[alt="Ciencias Económicas"] {
+  height: 74px;
+}
+
+/* En móviles: base 48px; los dos primeros → 58px (20% más) */
 @media (max-width: 480px) {
   .login-logo-img {
     height: 48px;
+  }
+  .login-logo-img[alt="UAGRM"],
+  .login-logo-img[alt="Ciencias Económicas"] {
+    height: 58px;
   }
   .logos-container {
     gap: 12px;
     margin-bottom: 10px;
   }
-}
-
-.login-logo {
-  font-size: 48px;
-  text-align: center;
-  margin-bottom: 12px;
 }
 
 .login-title {
@@ -146,6 +150,7 @@ body {
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 3px;
+  margin-top: 0;
 }
 
 .login-sub {
@@ -222,6 +227,16 @@ body {
 
 .logo-icon {
   font-size: 26px;
+  display: flex;
+  align-items: center;
+}
+
+/* Imagen en el logo del sidebar */
+.sidebar-logo-img {
+  width: 32px;        /* tamaño más pequeño y legible */
+  height: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .logo-title {
@@ -1447,35 +1462,4 @@ td.warn {
 .btn-warning:hover {
   background: #e68a00;
   transform: translateY(-1px);
-}
-/* ==============================================
-   TAMAÑOS ESPECÍFICOS PARA LOGOS (20% más grandes)
-   ============================================== */
-/* Tamaño base para todos los logos (escritorio) */
-.login-logo-img {
-  height: 62px;      /* <-- ajusta este valor si ya lo tienes definido */
-}
-
-/* Para UAGRM y Ciencias Económicas: 20% más grande (62px → 74px) */
-.login-logo-img[alt="UAGRM"],
-.login-logo-img[alt="Ciencias Económicas"] {
-  height: 74px;
-}
-
-/* En móviles: base 48px; los dos primeros → 58px (20% más) */
-@media (max-width: 480px) {
-  .login-logo-img {
-    height: 48px;
-  }
-  .login-logo-img[alt="UAGRM"],
-  .login-logo-img[alt="Ciencias Económicas"] {
-    height: 58px;
-  }
-}
-/* Imagen en el logo del sidebar */
-.sidebar-logo-img {
-  width: 24px;        /* tamaño más pequeño */
-  height: auto;
-  object-fit: contain;
-  display: block;
 }
