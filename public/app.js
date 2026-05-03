@@ -3317,3 +3317,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // Si el contenedor existe, inicializar
   if (document.getElementById('manualContentContainer')) initManual();
 });
+// Abrir modal desde login
+document.getElementById('btnVerManualLogin')?.addEventListener('click', () => {
+  const modal = document.getElementById('modalManual');
+  const container = document.getElementById('manualContentContainer');
+  if (container && !container.innerHTML.trim()) {
+    container.innerHTML = manualHTML;
+    initManual();
+    initManualAccordion();
+  }
+  modal.classList.remove('hidden');
+});
+document.getElementById('btnCerrarModal')?.addEventListener('click', () => {
+  document.getElementById('modalManual').classList.add('hidden');
+});
+document.getElementById('modalManual')?.addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modalManual')) {
+    document.getElementById('modalManual').classList.add('hidden');
+  }
+});
