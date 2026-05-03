@@ -1,0 +1,2266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manual del Estudiante · SimMkt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── Variables ─────────────────────────────────── */
+  :root {
+    --ink:       #0A1628;
+    --ink-2:     #1B2D4A;
+    --ink-3:     #2C4166;
+    --gold:      #C9A84C;
+    --gold-lt:   #E8C97A;
+    --gold-pale: #F5ECD4;
+    --cream:     #FDFAF3;
+    --white:     #FFFFFF;
+    --muted:     #7A8FA8;
+    --accent1:   #3A7CA5;
+    --accent2:   #2E8B57;
+    --accent3:   #9B4DCA;
+    --danger:    #C0392B;
+    --sidebar-w: 270px;
+    --radius:    12px;
+    --shadow:    0 8px 40px rgba(10,22,40,0.18);
+    --font-disp: 'Playfair Display', Georgia, serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  /* ── Reset & Base ──────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+
+  body {
+    background: var(--ink);
+    color: var(--cream);
+    font-family: var(--font-body);
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grain overlay ──────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: .5;
+  }
+
+  /* ── Layout ─────────────────────────────────────── */
+  .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+  /* ── Sidebar ────────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: linear-gradient(175deg, var(--ink-2) 0%, var(--ink) 100%);
+    border-right: 1px solid rgba(201,168,76,0.15);
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 100;
+    transition: transform .3s ease;
+  }
+
+  .sidebar-logo {
+    padding: 32px 24px 20px;
+    border-bottom: 1px solid rgba(201,168,76,0.12);
+  }
+  .sidebar-logo .sim-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .sidebar-logo h1 {
+    font-family: var(--font-disp);
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1.2;
+  }
+  .sidebar-logo h1 span { color: var(--gold); }
+
+  .sidebar-subtitle {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: 6px;
+    font-weight: 300;
+    letter-spacing: .5px;
+  }
+
+  .sidebar-nav { padding: 20px 0; flex: 1; }
+  .nav-section-label {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 14px 24px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    color: rgba(253,250,243,0.65);
+    text-decoration: none;
+    font-size: .87rem;
+    font-weight: 400;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all .2s ease;
+  }
+  .nav-item:hover {
+    color: var(--cream);
+    background: rgba(201,168,76,0.06);
+    border-left-color: rgba(201,168,76,0.3);
+  }
+  .nav-item.active {
+    color: var(--gold-lt);
+    background: rgba(201,168,76,0.1);
+    border-left-color: var(--gold);
+    font-weight: 600;
+  }
+  .nav-item .nav-icon {
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .nav-item .nav-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gold);
+    opacity: .7;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer {
+    padding: 18px 24px;
+    border-top: 1px solid rgba(201,168,76,0.1);
+  }
+  .sidebar-footer p {
+    font-size: .72rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .sidebar-footer strong { color: var(--gold); }
+
+  /* ── Mobile sidebar toggle ─────────────────────── */
+  .menu-toggle {
+    display: none;
+    position: fixed;
+    top: 16px; left: 16px;
+    z-index: 200;
+    background: var(--ink-2);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--gold);
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 20px;
+    align-items: center; justify-content: center;
+  }
+
+  /* ── Main content ───────────────────────────────── */
+  .main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    padding: 0 0 80px;
+    max-width: 960px;
+  }
+
+  /* ── Hero ───────────────────────────────────────── */
+  .hero {
+    padding: 64px 60px 50px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+  }
+  .hero::before {
+    content: 'SimMkt';
+    position: absolute;
+    right: -10px; top: -20px;
+    font-family: var(--font-disp);
+    font-size: 160px;
+    font-weight: 900;
+    color: rgba(201,168,76,0.04);
+    letter-spacing: -8px;
+    pointer-events: none;
+    line-height: 1;
+  }
+  .hero-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-transform: uppercase;
+    display: inline-block;
+    background: rgba(201,168,76,0.1);
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .hero h2 {
+    font-family: var(--font-disp);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 900;
+    line-height: 1.15;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+  .hero h2 em { color: var(--gold); font-style: italic; }
+  .hero-desc {
+    font-size: 1.05rem;
+    color: rgba(253,250,243,0.7);
+    max-width: 600px;
+    line-height: 1.75;
+    font-weight: 300;
+  }
+  .hero-badges {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 28px;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: .78rem;
+    color: rgba(253,250,243,0.75);
+    font-weight: 400;
+  }
+  .badge span { font-size: 14px; }
+
+  /* ── Progress bar decorative ───────────────────── */
+  .progress-bar-deco {
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--accent1), var(--accent3));
+    width: 100%;
+  }
+
+  /* ── Sections ───────────────────────────────────── */
+  .section {
+    padding: 56px 60px 20px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity .5s ease, transform .5s ease;
+  }
+  .section.visible { opacity: 1; transform: translateY(0); }
+
+  .section-header {
+    display: flex; align-items: flex-start; gap: 20px;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(201,168,76,0.12);
+  }
+  .section-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    background: rgba(201,168,76,0.1);
+    width: 42px; height: 42px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+  .section-title-block h3 {
+    font-family: var(--font-disp);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.2;
+  }
+  .section-title-block p {
+    font-size: .85rem;
+    color: var(--muted);
+    margin-top: 4px;
+    font-weight: 300;
+  }
+
+  /* ── Prose ──────────────────────────────────────── */
+  .prose {
+    font-size: .95rem;
+    color: rgba(253,250,243,0.8);
+    line-height: 1.8;
+    font-weight: 300;
+  }
+  .prose strong { color: var(--cream); font-weight: 600; }
+  .prose em { color: var(--gold-lt); font-style: italic; }
+
+  /* ── Cards grid ─────────────────────────────────── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 22px 22px 20px;
+    transition: all .25s ease;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--card-accent, var(--gold));
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .card:hover { 
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(201,168,76,0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+  }
+  .card:hover::before { opacity: 1; }
+  .card-icon { font-size: 28px; margin-bottom: 12px; display: block; }
+  .card h4 {
+    font-family: var(--font-disp);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .card p {
+    font-size: .84rem;
+    color: rgba(253,250,243,0.6);
+    line-height: 1.65;
+    font-weight: 300;
+  }
+  .card .ref-tag {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: .72rem;
+    font-family: var(--font-mono);
+    color: var(--gold);
+    background: rgba(201,168,76,0.08);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  /* ── KPI Table ──────────────────────────────────── */
+  .kpi-table-wrap { overflow-x: auto; margin-top: 24px; border-radius: var(--radius); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .84rem;
+  }
+  thead {
+    background: rgba(201,168,76,0.12);
+  }
+  thead th {
+    padding: 14px 16px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: .73rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold-lt);
+    font-weight: 500;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background .2s;
+  }
+  tbody tr:hover { background: rgba(201,168,76,0.04); }
+  tbody td {
+    padding: 13px 16px;
+    color: rgba(253,250,243,0.8);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  tbody td:first-child {
+    color: var(--white);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td .ref-inline {
+    display: block;
+    font-size: .72rem;
+    font-family: var(--font-mono);
+    color: var(--gold);
+    margin-top: 4px;
+    opacity: .8;
+  }
+
+  /* ── Process timeline ───────────────────────────── */
+  .timeline { margin-top: 24px; position: relative; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 22px; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--gold) 0%, rgba(201,168,76,0.1) 100%);
+  }
+  .timeline-item {
+    display: flex;
+    gap: 22px;
+    padding-bottom: 28px;
+    position: relative;
+  }
+  .timeline-dot {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--ink-2);
+    border: 2px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 0 4px var(--ink);
+  }
+  .timeline-content { padding-top: 8px; }
+  .timeline-content h4 {
+    font-weight: 600;
+    color: var(--white);
+    font-size: .95rem;
+    margin-bottom: 4px;
+  }
+  .timeline-content p {
+    font-size: .83rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .timeline-step {
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ── Decision cards (3.x) ───────────────────────── */
+  .decision-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+  .decision-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all .25s ease;
+  }
+  .decision-card::after {
+    content: attr(data-num);
+    position: absolute;
+    bottom: -10px; right: 10px;
+    font-family: var(--font-disp);
+    font-size: 72px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.03);
+    line-height: 1;
+    pointer-events: none;
+  }
+  .decision-card:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.14);
+    transform: translateY(-2px);
+  }
+  .dc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .dc-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .decision-card h4 {
+    font-weight: 600;
+    font-size: .92rem;
+    color: var(--white);
+    line-height: 1.3;
+  }
+  .decision-card .insight {
+    font-size: .8rem;
+    color: rgba(253,250,243,0.55);
+    line-height: 1.6;
+    margin-top: 6px;
+  }
+  .decision-card .tip {
+    display: flex; align-items: flex-start; gap: 6px;
+    margin-top: 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: .76rem;
+    color: var(--gold-lt);
+    line-height: 1.5;
+  }
+  .decision-card .tip::before { content: '→'; flex-shrink: 0; }
+  .dc-refs {
+    margin-top: 10px;
+    font-size: .7rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── Reflection cards ───────────────────────────── */
+  .questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .question-item {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-left: 3px solid var(--q-color, var(--gold));
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px;
+    transition: all .2s ease;
+    cursor: default;
+  }
+  .question-item:hover {
+    background: rgba(255,255,255,0.05);
+    transform: translateX(4px);
+  }
+  .question-item p {
+    font-size: .9rem;
+    color: rgba(253,250,243,0.85);
+    line-height: 1.65;
+    font-weight: 300;
+  }
+  .question-item strong { color: var(--white); }
+
+  /* ── Tools cards ────────────────────────────────── */
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+  .tool-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    transition: all .25s ease;
+  }
+  .tool-card:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(201,168,76,0.2);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 32px rgba(0,0,0,0.3);
+  }
+  .tool-card .tool-icon { font-size: 36px; margin-bottom: 10px; }
+  .tool-card h4 {
+    font-weight: 600;
+    font-size: .88rem;
+    color: var(--white);
+    margin-bottom: 6px;
+  }
+  .tool-card p {
+    font-size: .78rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .tool-card .formula {
+    margin-top: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: var(--gold-lt);
+    line-height: 1.5;
+  }
+
+  /* ── Informe final ──────────────────────────────── */
+  .report-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+  .report-step {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 20px 18px;
+    text-align: center;
+    transition: all .25s ease;
+  }
+  .report-step:hover { background: rgba(255,255,255,0.06); transform: translateY(-2px); }
+  .report-step .step-n {
+    font-family: var(--font-disp);
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--gold);
+    opacity: .4;
+    display: block;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .report-step h4 {
+    font-weight: 600; font-size: .88rem; color: var(--white); margin-bottom: 6px;
+  }
+  .report-step p { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── Bibliography ───────────────────────────────── */
+  .bib-filter {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 20px;
+  }
+  .bib-btn {
+    padding: 6px 16px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: rgba(253,250,243,0.65);
+    font-size: .8rem;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .bib-btn:hover, .bib-btn.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .bib-list { display: flex; flex-direction: column; gap: 8px; }
+  .bib-item {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: .82rem;
+    color: rgba(253,250,243,0.7);
+    line-height: 1.6;
+    transition: all .2s;
+  }
+  .bib-item:hover { background: rgba(255,255,255,0.05); color: var(--cream); }
+  .bib-item .bib-author { color: var(--gold-lt); font-weight: 500; }
+  .bib-item .bib-cat {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: .65rem;
+    color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .bib-item.hidden { display: none; }
+
+  /* ── Back to top ─────────────────────────────────── */
+  .back-top {
+    position: fixed;
+    bottom: 30px; right: 30px;
+    width: 44px; height: 44px;
+    background: var(--gold);
+    color: var(--ink);
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: all .3s ease;
+    z-index: 500;
+  }
+  .back-top.show { opacity: 1; pointer-events: auto; }
+  .back-top:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(201,168,76,0.5); }
+
+  /* ── Divider ─────────────────────────────────────── */
+  .divider {
+    margin: 40px 60px 0;
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* ── Color accent map for decision cards ─────────── */
+  .dc-blue  { background: rgba(58,124,165,0.15); }
+  .dc-green { background: rgba(46,139,87,0.15);  }
+  .dc-gold  { background: rgba(201,168,76,0.15); }
+  .dc-purple{ background: rgba(155,77,202,0.15); }
+  .dc-red   { background: rgba(192,57,43,0.15);  }
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; max-width: 100%; }
+    .menu-toggle { display: flex; }
+    .hero, .section { padding-left: 24px; padding-right: 24px; }
+    .hero::before { display: none; }
+    .divider { margin-left: 24px; margin-right: 24px; }
+  }
+
+  /* ── Annexes ────────────────────────────────────── */
+  .annex-hero {
+    background: linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(58,124,165,0.06) 100%);
+    border: 1px solid rgba(201,168,76,0.18);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 36px;
+  }
+  .annex-hero h3 {
+    font-family: var(--font-disp);
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .annex-hero p { font-size: .88rem; color: var(--muted); line-height: 1.6; }
+  .annex-index-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .annex-index-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-decoration: none;
+    transition: all .2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .annex-index-item:hover {
+    background: rgba(201,168,76,0.08);
+    border-color: rgba(201,168,76,0.25);
+    transform: translateY(-1px);
+  }
+  .anx-letter {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gold);
+    flex-shrink: 0;
+    line-height: 1;
+    padding-top: 2px;
+  }
+  .anx-title { font-size: .78rem; color: rgba(253,250,243,0.75); line-height: 1.4; }
+
+  /* Annex sub-section */
+  .annex-section {
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .annex-section-header {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 24px;
+  }
+  .anx-badge {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--gold);
+    width: 38px; height: 38px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .annex-section-header h4 {
+    font-family: var(--font-disp);
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.2;
+  }
+  .annex-section-header p {
+    font-size: .82rem;
+    color: var(--muted);
+    margin-top: 3px;
+    font-weight: 300;
+  }
+
+  /* Annex tables — slightly more compact */
+  .anx-table-wrap { overflow-x: auto; margin: 16px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
+  .anx-table { width: 100%; border-collapse: collapse; font-size: .81rem; }
+  .anx-table thead { background: rgba(201,168,76,0.1); }
+  .anx-table thead th {
+    padding: 11px 14px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-lt);
+    font-weight: 500;
+    border-bottom: 1px solid rgba(201,168,76,0.18);
+    white-space: nowrap;
+  }
+  .anx-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background .15s; }
+  .anx-table tbody tr:last-child { border-bottom: none; }
+  .anx-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .anx-table tbody td {
+    padding: 10px 14px;
+    color: rgba(253,250,243,0.78);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .anx-table tbody td:first-child { color: var(--white); font-weight: 500; }
+  .anx-table .val-pos { color: #4CAF50; font-weight: 600; }
+  .anx-table .val-neg { color: #EF5350; font-weight: 600; }
+  .anx-table .val-neu { color: var(--muted); }
+  .anx-table .val-gold { color: var(--gold-lt); font-weight: 600; }
+  .anx-table .center { text-align: center; }
+  .anx-table .mono { font-family: var(--font-mono); font-size: .78rem; }
+
+  /* Formula box */
+  .formula-box {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-family: var(--font-mono);
+    font-size: .83rem;
+    color: var(--gold-lt);
+    line-height: 1.7;
+  }
+  .formula-box .f-label {
+    font-size: .68rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* Note box */
+  .note-box {
+    background: rgba(58,124,165,0.08);
+    border: 1px solid rgba(58,124,165,0.2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: .82rem;
+    color: rgba(253,250,243,0.75);
+    line-height: 1.6;
+  }
+  .note-box .note-icon { margin-right: 6px; }
+  .note-box strong { color: var(--accent1); }
+
+  /* Step badge */
+  .step-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-family: var(--font-mono);
+    font-size: .73rem;
+    color: var(--gold-lt);
+    letter-spacing: 1px;
+    margin: 18px 0 8px;
+    display: block;
+    width: fit-content;
+  }
+
+  /* State badges */
+  .state-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 100px;
+    font-size: .73rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .state-pending  { background: rgba(120,120,120,0.2); color: #aaa; }
+  .state-open     { background: rgba(46,139,87,0.2);   color: #4CAF50; }
+  .state-closed   { background: rgba(230,126,34,0.2);  color: #F39C12; }
+  .state-presim   { background: rgba(58,124,165,0.2);  color: #5DADE2; }
+  .state-done     { background: rgba(46,139,87,0.15);  color: #58D68D; }
+
+  /* Annex flow diagram */
+  .state-flow {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin: 16px 0;
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+  }
+  .state-flow .arrow { color: var(--muted); font-size: 1.1rem; }
+
+  /* ── Animations ─────────────────────────────────── */
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .hero { animation: fadeSlide .7s ease both; }
+  .progress-bar-deco { animation: fadeSlide .4s .1s ease both; }
+
+  /* ── Overlay (mobile) ─────────────────────────── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(10,22,40,0.7);
+    z-index: 90;
+    backdrop-filter: blur(2px);
+  }
+  .overlay.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Mobile menu toggle -->
+<button class="menu-toggle" id="menuToggle" aria-label="Menú">☰</button>
+<div class="overlay" id="overlay"></div>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="sim-tag">Manual · SimMkt</span>
+      <h1>Sim<span>Mkt</span></h1>
+      <p class="sidebar-subtitle">Simulador de Marketing Estratégico<br>UAGRM · Facultad de Ciencias Económicas</p>
+    </div>
+
+    <div class="sidebar-nav">
+      <p class="nav-section-label">Contenido</p>
+      <a class="nav-item active" href="#sec-propósito" onclick="closeMenu()">
+        <span class="nav-icon">🎯</span> Propósito y Fundamento
+        <span class="nav-num">01</span>
+      </a>
+      <a class="nav-item" href="#sec-kpi" onclick="closeMenu()">
+        <span class="nav-icon">📊</span> Indicadores (KPIs)
+        <span class="nav-num">02</span>
+      </a>
+      <a class="nav-item" href="#sec-decisiones" onclick="closeMenu()">
+        <span class="nav-icon">🧠</span> Decisiones Clave
+        <span class="nav-num">03</span>
+      </a>
+      <a class="nav-item" href="#sec-flujo" onclick="closeMenu()">
+        <span class="nav-icon">🔄</span> Flujo de Simulación
+        <span class="nav-num">04</span>
+      </a>
+      <a class="nav-item" href="#sec-herramientas" onclick="closeMenu()">
+        <span class="nav-icon">🛠️</span> Herramientas Analíticas
+        <span class="nav-num">05</span>
+      </a>
+      <a class="nav-item" href="#sec-reflexion" onclick="closeMenu()">
+        <span class="nav-icon">💡</span> Reflexión Estratégica
+        <span class="nav-num">06</span>
+      </a>
+      <a class="nav-item" href="#sec-informe" onclick="closeMenu()">
+        <span class="nav-icon">📝</span> Informe Final
+        <span class="nav-num">07</span>
+      </a>
+      <a class="nav-item" href="#sec-bib" onclick="closeMenu()">
+        <span class="nav-icon">📚</span> Bibliografía
+        <span class="nav-num">08</span>
+      </a>
+      <p class="nav-section-label" style="margin-top:8px;">Anexos — Referencia</p>
+      <a class="nav-item" href="#anx-a" onclick="closeMenu()">
+        <span class="nav-icon">🧼</span> A · Catálogo Productos
+        <span class="nav-num">A</span>
+      </a>
+      <a class="nav-item" href="#anx-b" onclick="closeMenu()">
+        <span class="nav-icon">🗺️</span> B · Segmentos
+        <span class="nav-num">B</span>
+      </a>
+      <a class="nav-item" href="#anx-c" onclick="closeMenu()">
+        <span class="nav-icon">🔢</span> C · Matriz Afinidad
+        <span class="nav-num">C</span>
+      </a>
+      <a class="nav-item" href="#anx-d" onclick="closeMenu()">
+        <span class="nav-icon">🚚</span> D · Canales
+        <span class="nav-num">D</span>
+      </a>
+      <a class="nav-item" href="#anx-e" onclick="closeMenu()">
+        <span class="nav-icon">💰</span> E · Parámetros Financieros
+        <span class="nav-num">E</span>
+      </a>
+      <a class="nav-item" href="#anx-f" onclick="closeMenu()">
+        <span class="nav-icon">⚙️</span> F · Fórmulas Motor
+        <span class="nav-num">F</span>
+      </a>
+      <a class="nav-item" href="#anx-g" onclick="closeMenu()">
+        <span class="nav-icon">📊</span> G · Glosario KPIs
+        <span class="nav-num">G</span>
+      </a>
+      <a class="nav-item" href="#anx-h" onclick="closeMenu()">
+        <span class="nav-icon">🔍</span> H · Reportes
+        <span class="nav-num">H</span>
+      </a>
+      <a class="nav-item" href="#anx-i" onclick="closeMenu()">
+        <span class="nav-icon">🔄</span> I · Estados Ronda
+        <span class="nav-num">I</span>
+      </a>
+      <a class="nav-item" href="#anx-j" onclick="closeMenu()">
+        <span class="nav-icon">🔗</span> J · Propagación Saldos
+        <span class="nav-num">J</span>
+      </a>
+      <a class="nav-item" href="#anx-k" onclick="closeMenu()">
+        <span class="nav-icon">🤝</span> K · Competencia Externa
+        <span class="nav-num">K</span>
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <p><strong>SimMkt v2.0</strong><br>20 trimestres · Mercado de jaboncillos Bolivia<br>Competencia oligopólica simulada</p>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main class="main" id="mainContent">
+    <div class="progress-bar-deco"></div>
+
+    <!-- HERO -->
+    <div class="hero">
+      <span class="hero-tag">Manual del Estudiante</span>
+      <h2>Tu guía para competir,<br><em>analizar y decidir</em></h2>
+      <p class="hero-desc">
+        SimMkt simula un mercado oligopólico de jaboncillos en Bolivia durante 20 trimestres. 
+        No se trata de maximizar una única métrica — se trata de construir 
+        <strong>ventaja competitiva sostenible</strong> mientras mantienes viabilidad financiera.
+      </p>
+      <div class="hero-badges">
+        <span class="badge"><span>🏭</span> 6 tipos de producto</span>
+        <span class="badge"><span>🗺️</span> 7 segmentos de mercado</span>
+        <span class="badge"><span>🔁</span> 20 rondas trimestrales</span>
+        <span class="badge"><span>📈</span> Estados financieros reales</span>
+        <span class="badge"><span>🤝</span> Hasta 5 integrantes</span>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 1: PROPÓSITO -->
+    <section class="section" id="sec-propósito">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <div class="section-title-block">
+          <h3>Propósito y Fundamento Teórico</h3>
+          <p>¿Qué modela SimMkt y sobre qué literatura se construye?</p>
+        </div>
+      </div>
+
+      <p class="prose">
+        SimMkt es un simulador de <strong>gestión estratégica de marketing</strong> basado en la 
+        teoría de juegos y la competencia dinámica en oligopolios (Tirole, 1988; Shapiro & Varian, 2013). 
+        El mercado boliviano de jaboncillos se modela con múltiples segmentos, productos diferenciados 
+        y competidores externos (contrabando, marcas locales). 
+        <em>El objetivo no es maximizar una sola métrica</em>, sino construir ventaja competitiva sostenible 
+        mientras se mantiene la viabilidad financiera del negocio.
+      </p>
+
+      <div class="cards-grid" style="margin-top:28px;">
+        <div class="card" style="--card-accent:#C9A84C;">
+          <span class="card-icon">⚔️</span>
+          <h4>Estrategia Competitiva</h4>
+          <p>Entiende las 5 fuerzas del mercado y elige entre liderazgo en costos o diferenciación. No existe la mejor estrategia universal.</p>
+          <span class="ref-tag">Porter (1980)</span>
+        </div>
+        <div class="card" style="--card-accent:#3A7CA5;">
+          <span class="card-icon">📐</span>
+          <h4>Balanced Scorecard</h4>
+          <p>Mide tu desempeño más allá de lo financiero: participación, calidad percibida, innovación y aprendizaje organizacional.</p>
+          <span class="ref-tag">Kaplan & Norton (1996)</span>
+        </div>
+        <div class="card" style="--card-accent:#2E8B57;">
+          <span class="card-icon">🌊</span>
+          <h4>Capacidades Dinámicas</h4>
+          <p>El mercado cambia cada trimestre. Las empresas que aprenden y adaptan su mix de marketing capturan más valor.</p>
+          <span class="ref-tag">Day (2011)</span>
+        </div>
+        <div class="card" style="--card-accent:#9B4DCA;">
+          <span class="card-icon">♟️</span>
+          <h4>Interacciones Estratégicas</h4>
+          <p>Tus decisiones afectan a todos. La teoría de juegos explica por qué en oligopolios la coordinación implícita y la diferenciación son clave.</p>
+          <span class="ref-tag">Tirole (1988/2019)</span>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 2: KPIs -->
+    <section class="section" id="sec-kpi">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <div class="section-title-block">
+          <h3>Indicadores de Desempeño</h3>
+          <p>No existe un valor "óptimo" universal — compara tu evolución y la tendencia del mercado</p>
+        </div>
+      </div>
+
+      <p class="prose" style="margin-bottom:20px;">
+        El simulador genera automáticamente estos KPIs al finalizar cada ronda. 
+        Úsalos para <strong>diagnosticar</strong> tu posición competitiva, no como fines en sí mismos.
+      </p>
+
+      <div class="kpi-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>Fórmula / Origen</th>
+              <th>Uso estratégico</th>
+              <th>Referencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Market Share</td>
+              <td>Ventas empresa / Ventas totales del segmento</td>
+              <td>Mide poder competitivo; combínalo con margen para la matriz BCG dinámica</td>
+              <td><span class="ref-inline">Henderson (1970/2013); Buzzell & Gale (1987)</span></td>
+            </tr>
+            <tr>
+              <td>EBIT</td>
+              <td>Ventas netas − Costos totales (sin intereses ni impuestos)</td>
+              <td>Rentabilidad operacional; compara con costo de capital (ROIC)</td>
+              <td><span class="ref-inline">Damodaran (2012, 2ª ed.)</span></td>
+            </tr>
+            <tr>
+              <td>ROI Marketing</td>
+              <td>(Vtas netas − CV − Gto. mkt) / Gasto mkt</td>
+              <td>Eficiencia del presupuesto; umbrales dependen del sector y el trimestre</td>
+              <td><span class="ref-inline">Hanssens (2015); Srinivasan & Hanssens (2009)</span></td>
+            </tr>
+            <tr>
+              <td>Caja Final</td>
+              <td>Flujo de efectivo de operaciones + inversión + financiamiento</td>
+              <td>Liquidez; compara con capital de trabajo mínimo necesario</td>
+              <td><span class="ref-inline">Brigham & Houston (2019, 15ª ed.)</span></td>
+            </tr>
+            <tr>
+              <td>Endeudamiento</td>
+              <td>Deuda total / Activos totales</td>
+              <td>Riesgo financiero; el apalancamiento óptimo no es universal</td>
+              <td><span class="ref-inline">Modigliani & Miller (1958); Graham & Leary (2011)</span></td>
+            </tr>
+            <tr>
+              <td>Rot. Inventario</td>
+              <td>Ventas / Inventario promedio</td>
+              <td>Eficiencia operativa; señal de obsolescencia o ruptura de stock</td>
+              <td><span class="ref-inline">Nahmias & Olsen (2015); Slack et al. (2016)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 3: DECISIONES -->
+    <section class="section" id="sec-decisiones">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <div class="section-title-block">
+          <h3>Decisiones Clave</h3>
+          <p>Las 10 palancas estratégicas de tu empresa en cada trimestre</p>
+        </div>
+      </div>
+
+      <p class="prose" style="margin-bottom:4px;">
+        Cada ronda deberás tomar decisiones en estas dimensiones. 
+        <em>Ninguna combinación es la "correcta"</em> — todo depende de tu segmento, tus recursos y el comportamiento de los competidores.
+      </p>
+
+      <div class="decision-grid">
+
+        <div class="decision-card" data-num="1">
+          <div class="dc-top">
+            <div class="dc-icon dc-blue">🗺️</div>
+            <h4>3.1 Segmento y Producto</h4>
+          </div>
+          <p class="insight">No existe el mejor segmento: cada uno tiene estructura de costos y sensibilidad diferente. Usa el reporte de investigación para conocer tendencia y presión del contrabando.</p>
+          <div class="tip">Verifica la afinidad producto-segmento antes de elegir. Un Jabón Natural en Masivo popular es una mala apuesta.</div>
+          <p class="dc-refs">Kotler & Keller (2016) · Lemon & Verhoef (2016)</p>
+        </div>
+
+        <div class="decision-card" data-num="2">
+          <div class="dc-top">
+            <div class="dc-icon dc-gold">⭐</div>
+            <h4>3.2 Calidad</h4>
+          </div>
+          <p class="insight">Cada punto de calidad sobre 5 añade Bs 0,20 al costo unitario y aumenta tu atractivo competitivo. Maximizar calidad no siempre es óptimo: depende de la elasticidad precio del segmento.</p>
+          <div class="tip">Equilibra calidad percibida y precio de venta para no salir del rango aceptable del segmento.</div>
+          <p class="dc-refs">Aaker (1996) · Mizik (2014)</p>
+        </div>
+
+        <div class="decision-card" data-num="3">
+          <div class="dc-top">
+            <div class="dc-icon dc-green">💲</div>
+            <h4>3.3 Precio</h4>
+          </div>
+          <p class="insight">El simulador aplica una función de demanda con sensibilidad variable. Precios bajos pueden generar volumen pero erosionan margen; precios altos requieren diferenciación real y sostenida.</p>
+          <div class="tip">Calcula el punto de equilibrio antes de fijar precio. Precio cubre CU + gastos fijos / unidad + margen.</div>
+          <p class="dc-refs">Nagle & Hogan (2006) · Tellis (1986) · Rao (2015)</p>
+        </div>
+
+        <div class="decision-card" data-num="4">
+          <div class="dc-top">
+            <div class="dc-icon dc-purple">🚚</div>
+            <h4>3.4 Canales de Distribución</h4>
+          </div>
+          <p class="insight">Selecciona uno o dos canales (principal y secundario). La elección afecta costo unitario, comisión e impacto de vendedores en el atractivo. El canal secundario promedia ambos efectos.</p>
+          <div class="tip">Farmacia e Institucional tienen mayor comisión pero elevan el atractivo en segmentos especializados.</div>
+          <p class="dc-refs">Neslin & Shankar (2009)</p>
+        </div>
+
+        <div class="decision-card" data-num="5">
+          <div class="dc-top">
+            <div class="dc-icon dc-blue">📣</div>
+            <h4>3.5 Mix Promocional</h4>
+          </div>
+          <p class="insight">Publicidad, promoción, eventos, redes sociales y RR.PP. tienen rendimientos decrecientes. El simulador integra estos esfuerzos en un índice de atractivo competitivo.</p>
+          <div class="tip">Distribuye el presupuesto entre varios instrumentos; concentrarlo todo en uno reduce la eficiencia marginal.</div>
+          <p class="dc-refs">Rust et al. (2004) · Sethuraman et al. (2011)</p>
+        </div>
+
+        <div class="decision-card" data-num="6">
+          <div class="dc-top">
+            <div class="dc-icon dc-green">🤝</div>
+            <h4>3.6 Fuerza de Ventas</h4>
+          </div>
+          <p class="insight">Los vendedores aumentan el atractivo competitivo, especialmente en canales con alto factor de impacto (Institucional, Farmacia). Contratar más eleva costos fijos trimestrales.</p>
+          <div class="tip">Contratar vendedores en rondas de crecimiento; despedirlos tiene costo de liquidación que afecta caja.</div>
+          <p class="dc-refs">Albers (2012)</p>
+        </div>
+
+        <div class="decision-card" data-num="7">
+          <div class="dc-top">
+            <div class="dc-icon dc-gold">🏭</div>
+            <h4>3.7 Producción e Inventarios</h4>
+          </div>
+          <p class="insight">Producir en exceso genera costos de almacenamiento (Bs 0,10/unidad) y riesgo de obsolescencia. Producir de menos significa pérdida de ventas. El equilibrio depende de la demanda estimada.</p>
+          <div class="tip">Usa la pre-simulación para ajustar tu producción antes de que el profesor ejecute los resultados finales.</div>
+          <p class="dc-refs">Womack et al. (1990) · Fisher (1997) · Christopher (2016)</p>
+        </div>
+
+        <div class="decision-card" data-num="8">
+          <div class="dc-top">
+            <div class="dc-icon dc-red">🏦</div>
+            <h4>3.8 Financiamiento</h4>
+          </div>
+          <p class="insight">Préstamos operativos (4% trimestral) o de inversión (3% trimestral), más comisión de apertura del 1%. El sobregiro automático cuesta 6% — evítalo planificando el flujo de caja.</p>
+          <div class="tip">Endeúdate para crecer, no para cubrir pérdidas recurrentes. Controla el ratio Deuda/Activos &lt; 0.6.</div>
+          <p class="dc-refs">Altman (1968) · Graham & Leary (2011)</p>
+        </div>
+
+        <div class="decision-card" data-num="9">
+          <div class="dc-top">
+            <div class="dc-icon dc-purple">🔬</div>
+            <h4>3.9 Innovación</h4>
+          </div>
+          <p class="insight">Innovación de Producto eleva el costo unitario pero diferencia. Innovación de Proceso reduce el costo unitario. Innovación de Canal aumenta el atractivo competitivo en distribución.</p>
+          <div class="tip">Elige el tipo de innovación que refuerza tu ventaja competitiva declarada, no el más costoso.</div>
+          <p class="dc-refs">Henderson & Clark (1990) · Danneels (2002) · Teece (2018)</p>
+        </div>
+
+        <div class="decision-card" data-num="10">
+          <div class="dc-top">
+            <div class="dc-icon dc-blue">🔍</div>
+            <h4>3.10 Investigación de Mercado</h4>
+          </div>
+          <p class="insight">Básica (Bs 4.000): tamaño de mercado, precios observados y alertas. Premium (Bs 7.500): añade participación por segmento, sensibilidad del consumidor y recomendaciones genéricas.</p>
+          <div class="tip">La información reduce asimetría (Akerlof, 1970). Invierte en premium cuando la incertidumbre es alta o el mercado cambia rápidamente.</div>
+          <p class="dc-refs">Akerlof (1970) · Simchi-Levi et al. (2014)</p>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 4: FLUJO -->
+    <section class="section" id="sec-flujo">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <div class="section-title-block">
+          <h3>Flujo del Proceso de Simulación</h3>
+          <p>6 pasos que se repiten en cada uno de los 20 trimestres</p>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot">📂</div>
+          <div class="timeline-content">
+            <span class="timeline-step">Paso 1</span>
+            <h4>Apertura de Ronda</h4>
+            <p>El profesor abre la ronda. Se cargan automáticamente los saldos del trimestre anterior: caja, inventario, vendedores, activos fijos y deuda acumulada.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">✏️</div>
+          <div class="timeline-content">
+            <span class="timeline-step">Paso 2</span>
+            <h4>Ingreso de Decisiones</h4>
+            <p>El equipo completa la hoja de decisión (puede guardar borrador y enviar dentro del plazo). Incluye: segmento, producto, precio, producción, marketing, vendedores, financiamiento e innovación.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">👁️</div>
+          <div class="timeline-content">
+            <span class="timeline-step">Paso 3 — Opcional</span>
+            <h4>Pre-Simulación</h4>
+            <p>El profesor calcula la demanda estimada y la notifica a cada equipo. <strong>Debes confirmar la recepción explícitamente.</strong> Este es tu momento de ajustar el nivel de producción antes del resultado final. Si no confirmas, el profesor puede forzar la confirmación.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">⚡</div>
+          <div class="timeline-content">
+            <span class="timeline-step">Paso 4</span>
+            <h4>Simulación Final</h4>
+            <p>El sistema ejecuta el cálculo de atractivos competitivos, cuota de mercado, ventas reales y todos los estados financieros (P&L, Balance General, Flujo de Efectivo).</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">📊</div>
+          <div class="timeline-content">
+            <span class="timeline-step">Paso 5</span>
+            <h4>Consulta de Resultados</h4>
+            <p>Tu equipo accede a: resultados financieros completos, reportes de investigación comprados, y <strong>ranking anónimo</strong> (ves tu posición, no los nombres de otros equipos).</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">🔁</div>
+          <div class="timeline-content">
+            <span class="timeline-step">Paso 6</span>
+            <h4>Avance de Ronda</h4>
+            <p>El profesor abre el siguiente trimestre. Las decisiones anteriores se pre-cargan como punto de partida, pero pueden modificarse completamente. El ciclo se repite hasta completar los 20 trimestres.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 5: HERRAMIENTAS -->
+    <section class="section" id="sec-herramientas">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <div class="section-title-block">
+          <h3>Herramientas Analíticas</h3>
+          <p>Marcos de análisis para fundamentar tus decisiones cada trimestre</p>
+        </div>
+      </div>
+
+      <p class="prose" style="margin-bottom:4px;">
+        No son obligatorias, pero <em>las empresas que las aplican toman decisiones más coherentes</em> 
+        y pueden justificar mejor su estrategia en el informe final.
+      </p>
+
+      <div class="tools-grid">
+        <div class="tool-card">
+          <div class="tool-icon">📉</div>
+          <h4>Elasticidad Precio</h4>
+          <p>Mide cuánto cambian tus ventas al modificar el precio. Úsala para fijar rangos de precio seguros.</p>
+          <div class="formula">ε = (ΔQ/Q) ÷ (ΔP/P)<br>ε &lt; -1 → elástico<br>ε &gt; -1 → inelástico</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">⚖️</div>
+          <h4>Punto de Equilibrio</h4>
+          <p>Define la producción mínima para cubrir todos los costos fijos. Fundamental para evitar pérdidas operativas.</p>
+          <div class="formula">Q* = CF / (P – CVu)<br>CF = costos fijos totales<br>CVu = costo variable unitario</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">🔵</div>
+          <h4>Matriz BCG Dinámica</h4>
+          <p>Clasifica tu segmento según crecimiento de mercado y tu participación relativa para decidir inversión o cosecha.</p>
+          <div class="formula">Estrella → alto crec. + alto share<br>Vaca → bajo crec. + alto share<br>Interrogante → alto crec. + bajo share</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">🔲</div>
+          <h4>Análisis DAFO</h4>
+          <p>Realiza un FODA rápido antes de cada ronda: ¿qué cambió en el entorno? ¿dónde estás débil este trimestre?</p>
+          <div class="formula">D: Debilidades internas<br>A: Amenazas externas<br>F: Fortalezas · O: Oportunidades</div>
+        </div>
+      </div>
+
+      <p class="prose" style="margin-top:24px;">
+        Referencia práctica: <strong>Grant, R. M. (2016, 9ª ed.)</strong>. <em>Contemporary Strategy Analysis</em>. Wiley.
+      </p>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 6: REFLEXIÓN -->
+    <section class="section" id="sec-reflexion">
+      <div class="section-header">
+        <div class="section-num">06</div>
+        <div class="section-title-block">
+          <h3>Preguntas para la Reflexión Estratégica</h3>
+          <p>Hazte estas preguntas <em>antes</em> de enviar cada decisión</p>
+        </div>
+      </div>
+
+      <p class="prose" style="margin-bottom:20px;">
+        El simulador no da respuestas, pero <strong>te obliga a hacerte las preguntas correctas</strong>. 
+        La coherencia entre decisiones a lo largo del tiempo es la principal fuente de ventaja competitiva duradera.
+      </p>
+
+      <div class="questions-list">
+        <div class="question-item" style="--q-color:#C9A84C;">
+          <p><strong>1. Segmento y tendencia:</strong> ¿El segmento que elegí mantiene su atractivo dados los cambios en tendencia o presión del contrabando? ¿Estoy donde hay oportunidad, o donde ya está todo saturado?</p>
+        </div>
+        <div class="question-item" style="--q-color:#3A7CA5;">
+          <p><strong>2. Alineación precio-calidad:</strong> ¿La calidad y el precio están alineados con la percepción de valor del segmento? ¿Estoy cobrando premium en un segmento sensible al precio?</p>
+        </div>
+        <div class="question-item" style="--q-color:#2E8B57;">
+          <p><strong>3. Producción e inventario:</strong> ¿Estoy produciendo lo suficiente para no perder ventas, pero no tanto como para acumular inventario caro? ¿Usé la pre-simulación para calibrar?</p>
+        </div>
+        <div class="question-item" style="--q-color:#9B4DCA;">
+          <p><strong>4. Capacidad financiera:</strong> ¿El nivel de deuda actual me permite tomar más riesgo, o conviene reducir gastos financieros este trimestre? ¿Mi caja aguanta el plan completo?</p>
+        </div>
+        <div class="question-item" style="--q-color:#C0392B;">
+          <p><strong>5. Coherencia de la innovación:</strong> ¿La innovación elegida (producto, proceso o canal) refuerza mi ventaja competitiva declarada? ¿O es un gasto disperso sin impacto estratégico?</p>
+        </div>
+        <div class="question-item" style="--q-color:#E8C97A;">
+          <p><strong>6. Valor de la información:</strong> ¿Qué reporte de investigación me aporta información que <em>realmente cambiará mi decisión</em>? ¿El costo del reporte es menor que el costo de decidir a ciegas?</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 7: INFORME -->
+    <section class="section" id="sec-informe">
+      <div class="section-header">
+        <div class="section-num">07</div>
+        <div class="section-title-block">
+          <h3>Comunicación de Resultados Finales</h3>
+          <p>Al concluir los 20 trimestres debes elaborar un informe estructurado</p>
+        </div>
+      </div>
+
+      <p class="prose" style="margin-bottom:24px;">
+        El informe no evalúa el valor absoluto de tus métricas. 
+        <em>Se valorará la coherencia estratégica y la capacidad de aprendizaje</em> demostrada a lo largo de la simulación.
+      </p>
+
+      <div class="report-steps">
+        <div class="report-step">
+          <span class="step-n">I</span>
+          <h4>Evolución de KPIs</h4>
+          <p>Gráficas y análisis de tendencias de market share, EBIT, caja y endeudamiento a lo largo de los 20 trimestres.</p>
+        </div>
+        <div class="report-step">
+          <span class="step-n">II</span>
+          <h4>Decisiones Críticas</h4>
+          <p>Identifica 3-5 decisiones que fueron puntos de inflexión en tu desempeño. Justifícalas con referencias a la literatura.</p>
+        </div>
+        <div class="report-step">
+          <span class="step-n">III</span>
+          <h4>Dinámica de Mercado</h4>
+          <p>Analiza cómo las acciones de los competidores y la presión del contrabando afectaron tu estrategia y tus resultados.</p>
+        </div>
+        <div class="report-step">
+          <span class="step-n">IV</span>
+          <h4>Lecciones Aprendidas</h4>
+          <p>¿Qué harías diferente? ¿Qué teoría o marco de análisis te hubiera sido más útil al inicio de la simulación?</p>
+        </div>
+      </div>
+
+      <div style="margin-top:28px; background:rgba(201,168,76,0.07); border:1px solid rgba(201,168,76,0.2); border-radius:var(--radius); padding:20px 24px;">
+        <p class="prose">
+          💡 <strong>Consejo final:</strong> Un equipo que tomó malas decisiones en las primeras rondas pero aprendió, 
+          ajustó su estrategia y puede explicar <em>por qué</em> lo hizo — demuestra mayor comprensión gerencial 
+          que uno que tuvo suerte con los números desde el principio. <strong>El proceso importa tanto como el resultado.</strong>
+        </p>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- SECCIÓN 8: BIBLIOGRAFÍA -->
+    <section class="section" id="sec-bib">
+      <div class="section-header">
+        <div class="section-num">08</div>
+        <div class="section-title-block">
+          <h3>Bibliografía Completa</h3>
+          <p>Clásicos fundacionales y actualizaciones del campo</p>
+        </div>
+      </div>
+
+      <div class="bib-filter">
+        <button class="bib-btn active" onclick="filterBib('all')">Todas</button>
+        <button class="bib-btn" onclick="filterBib('estrategia')">Estrategia</button>
+        <button class="bib-btn" onclick="filterBib('marketing')">Marketing</button>
+        <button class="bib-btn" onclick="filterBib('finanzas')">Finanzas</button>
+        <button class="bib-btn" onclick="filterBib('operaciones')">Operaciones</button>
+        <button class="bib-btn" onclick="filterBib('innovacion')">Innovación</button>
+      </div>
+
+      <div class="bib-list" id="bibList">
+        <!-- Estrategia -->
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Porter, M. E.</span> (1980). <em>Competitive Strategy</em>. Free Press.<span class="bib-cat">Estrategia</span></div>
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Grant, R. M.</span> (2016, 9ª ed.). <em>Contemporary Strategy Analysis</em>. Wiley.<span class="bib-cat">Estrategia</span></div>
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Kaplan, R. S. & Norton, D. P.</span> (1996). <em>The Balanced Scorecard</em>. Harvard Business School Press.<span class="bib-cat">Estrategia</span></div>
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Tirole, J.</span> (1988; reedición 2019). <em>The Theory of Industrial Organization</em>. MIT Press.<span class="bib-cat">Estrategia</span></div>
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Shapiro, C. & Varian, H. R.</span> (2013). <em>Information Rules</em>. Harvard Business Review Press.<span class="bib-cat">Estrategia</span></div>
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Buzzell, R. D. & Gale, B. T.</span> (1987). <em>The PIMS Principles</em>. Free Press.<span class="bib-cat">Estrategia</span></div>
+        <div class="bib-item" data-cat="estrategia"><span class="bib-author">Henderson, B.</span> (1970/2013). "The Experience Curve." <em>BCG Perspectives</em>.<span class="bib-cat">Estrategia</span></div>
+        <!-- Marketing -->
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Kotler, P. & Keller, K. L.</span> (2016, 15ª ed.). <em>Marketing Management</em>. Pearson.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Aaker, D. A.</span> (1996). <em>Building Strong Brands</em>. Free Press.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Day, G. S.</span> (2011). "Closing the Marketing Capabilities Gap." <em>Journal of Marketing</em>, 75(4), 183-195.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Lemon, K. N. & Verhoef, P. C.</span> (2016). "Understanding Customer Experience." <em>Journal of Marketing</em>, 80(6), 69-96.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Rust, R. T. et al.</span> (2004). "Return on Marketing." <em>Journal of Marketing</em>, 68(4), 76-89.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Sethuraman, R., Tellis, G. J. & Briesch, R. A.</span> (2011). "How Well Does Advertising Work?" <em>Journal of Marketing Research</em>, 48(3), 457-471.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Hanssens, D. M.</span> (2015). <em>Marketing Analytics</em>. MSI.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Nagle, T. & Hogan, J.</span> (2006, 5ª ed.). <em>The Strategy and Tactics of Pricing</em>. Prentice Hall.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Tellis, G. J.</span> (1986). "Beyond the Many Faces of Price." <em>Journal of Marketing</em>, 50(4), 146-160.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Rao, V. R.</span> (ed.) (2015). <em>Handbook of Pricing Research in Marketing</em>. Edward Elgar.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Mizik, N.</span> (2014). "Assessing the Total Financial Performance Impact of Brand Equity." <em>Journal of Marketing Research</em>, 51(3), 274-292.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Neslin, S. A. & Shankar, V.</span> (2009). "Key Issues in Multichannel Customer Management." <em>Journal of Interactive Marketing</em>, 23(1), 70-81.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Akerlof, G. A.</span> (1970). "The Market for 'Lemons'." <em>Quarterly Journal of Economics</em>, 84(3), 488-500.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Srinivasan, S. & Hanssens, D. M.</span> (2009). "Marketing and Firm Value." <em>MSI Working Paper</em>.<span class="bib-cat">Marketing</span></div>
+        <div class="bib-item" data-cat="marketing"><span class="bib-author">Vakratsas, D. & Ambler, T.</span> (1999). "How Advertising Works." <em>Journal of Marketing</em>, 63(1), 26-43.<span class="bib-cat">Marketing</span></div>
+        <!-- Finanzas -->
+        <div class="bib-item" data-cat="finanzas"><span class="bib-author">Damodaran, A.</span> (2012, 3ª ed.). <em>Investment Valuation</em>. Wiley.<span class="bib-cat">Finanzas</span></div>
+        <div class="bib-item" data-cat="finanzas"><span class="bib-author">Brigham, E. F. & Houston, J. F.</span> (2019, 15ª ed.). <em>Fundamentos de Administración Financiera</em>. Cengage.<span class="bib-cat">Finanzas</span></div>
+        <div class="bib-item" data-cat="finanzas"><span class="bib-author">Modigliani, F. & Miller, M. H.</span> (1958). "The Cost of Capital, Corporation Finance and the Theory of Investment." <em>American Economic Review</em>, 48(3), 261-297.<span class="bib-cat">Finanzas</span></div>
+        <div class="bib-item" data-cat="finanzas"><span class="bib-author">Graham, J. R. & Leary, M. T.</span> (2011). "A Review of Empirical Capital Structure Research." <em>Annual Review of Financial Economics</em>, 3, 309-345.<span class="bib-cat">Finanzas</span></div>
+        <div class="bib-item" data-cat="finanzas"><span class="bib-author">Altman, E. I.</span> (1968). "Financial Ratios, Discriminant Analysis and the Prediction of Corporate Bankruptcy." <em>Journal of Finance</em>, 23(4), 589-609.<span class="bib-cat">Finanzas</span></div>
+        <!-- Operaciones -->
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Womack, J. et al.</span> (1990). <em>The Machine That Changed the World</em>. Rawson Associates.<span class="bib-cat">Operaciones</span></div>
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Fisher, M. L.</span> (1997). "What Is the Right Supply Chain for Your Product?" <em>Harvard Business Review</em>, 75(2), 105-116.<span class="bib-cat">Operaciones</span></div>
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Christopher, M.</span> (2016, 5ª ed.). <em>Logistics & Supply Chain Management</em>. Pearson.<span class="bib-cat">Operaciones</span></div>
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Slack, N. et al.</span> (2016, 8ª ed.). <em>Operations Management</em>. Pearson.<span class="bib-cat">Operaciones</span></div>
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Nahmias, S. & Olsen, T. L.</span> (2015, 7ª ed.). <em>Production and Operations Analysis</em>. Waveland Press.<span class="bib-cat">Operaciones</span></div>
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Simchi-Levi, D. et al.</span> (2014). "The Value of Information in Supply Chain Management." <em>Management Science</em>, 60(2), 311-322.<span class="bib-cat">Operaciones</span></div>
+        <div class="bib-item" data-cat="operaciones"><span class="bib-author">Albers, S.</span> (2012). "Optimizing Salesforce Performance." <em>Handbook of Business-to-Business Marketing</em>. Edward Elgar.<span class="bib-cat">Operaciones</span></div>
+        <!-- Innovación -->
+        <div class="bib-item" data-cat="innovacion"><span class="bib-author">Henderson, R. M. & Clark, K. B.</span> (1990). "Architectural Innovation." <em>Administrative Science Quarterly</em>, 35(1), 9-30.<span class="bib-cat">Innovación</span></div>
+        <div class="bib-item" data-cat="innovacion"><span class="bib-author">Danneels, E.</span> (2002). "The Dynamics of Product Innovation and Firm Competences." <em>Strategic Management Journal</em>, 23(12), 1095-1121.<span class="bib-cat">Innovación</span></div>
+        <div class="bib-item" data-cat="innovacion"><span class="bib-author">Teece, D. J.</span> (2018). "Business Models and Dynamic Capabilities." <em>Long Range Planning</em>, 51(1), 40-49.<span class="bib-cat">Innovación</span></div>
+        <div class="bib-item" data-cat="innovacion"><span class="bib-author">Ailawadi, K. L. et al.</span> (2014). "Revenue Premium as an Outcome Measure of Brand Equity." <em>Journal of Marketing</em>, 78(2), 1-17.<span class="bib-cat">Innovación</span></div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ════════════════════════════════════════════ -->
+    <!--  SECCIÓN 09 — ANEXOS                        -->
+    <!-- ════════════════════════════════════════════ -->
+    <section class="section visible" id="sec-anexos">
+      <div class="section-header">
+        <div class="section-num" style="width:52px;font-size:10px;">ANX</div>
+        <div class="section-title-block">
+          <h3>Anexos — Material de Referencia del Sistema</h3>
+          <p>11 anexos técnicos con parámetros, fórmulas y glosarios completos del simulador</p>
+        </div>
+      </div>
+
+      <div class="annex-hero">
+        <h3>📎 Índice de Anexos</h3>
+        <p>Este material complementa el manual con los datos exactos que usa el motor de cálculo. Úsalos como referencia durante cada ronda para fundamentar tus decisiones con precisión.</p>
+        <div class="annex-index-grid">
+          <a class="annex-index-item" href="#anx-a"><span class="anx-letter">A</span><span class="anx-title">Catálogo de Productos</span></a>
+          <a class="annex-index-item" href="#anx-b"><span class="anx-letter">B</span><span class="anx-title">Segmentos de Mercado</span></a>
+          <a class="annex-index-item" href="#anx-c"><span class="anx-letter">C</span><span class="anx-title">Matriz de Afinidad</span></a>
+          <a class="annex-index-item" href="#anx-d"><span class="anx-letter">D</span><span class="anx-title">Canales de Distribución</span></a>
+          <a class="annex-index-item" href="#anx-e"><span class="anx-letter">E</span><span class="anx-title">Parámetros Financieros</span></a>
+          <a class="annex-index-item" href="#anx-f"><span class="anx-letter">F</span><span class="anx-title">Fórmulas del Motor</span></a>
+          <a class="annex-index-item" href="#anx-g"><span class="anx-letter">G</span><span class="anx-title">Glosario de Salidas</span></a>
+          <a class="annex-index-item" href="#anx-h"><span class="anx-letter">H</span><span class="anx-title">Reportes de Investigación</span></a>
+          <a class="annex-index-item" href="#anx-i"><span class="anx-letter">I</span><span class="anx-title">Estados de la Ronda</span></a>
+          <a class="annex-index-item" href="#anx-j"><span class="anx-letter">J</span><span class="anx-title">Propagación de Saldos</span></a>
+          <a class="annex-index-item" href="#anx-k"><span class="anx-letter">K</span><span class="anx-title">Competencia Externa</span></a>
+        </div>
+      </div>
+
+      <!-- ── ANEXO A ──────────────────────────────── -->
+      <div class="annex-section" id="anx-a">
+        <div class="annex-section-header">
+          <div class="anx-badge">A</div>
+          <div>
+            <h4>Catálogo de Productos</h4>
+            <p>6 productos con costo base, tabla de costo por calidad y descripción de atributos diferenciadores</p>
+          </div>
+        </div>
+        <div class="formula-box">
+          <span class="f-label">Fórmula de costo parcial</span>
+          Costo unitario parcial = Costo base + (0.20 × Calidad elegida)
+          <br><span style="color:var(--muted);font-size:.73rem;">donde Calidad es un entero de 1 a 10 definido en la hoja de decisiones</span>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead>
+              <tr><th>Producto</th><th>Costo base (Bs/unid)</th><th>Calidad = 1</th><th>Calidad = 5</th><th>Calidad = 10</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Básico</td><td class="mono">Bs 2.10</td><td class="mono">Bs 2.30</td><td class="mono val-gold">Bs 3.10</td><td class="mono">Bs 4.10</td></tr>
+              <tr><td>Antibacterial</td><td class="mono">Bs 2.60</td><td class="mono">Bs 2.80</td><td class="mono val-gold">Bs 3.60</td><td class="mono">Bs 4.60</td></tr>
+              <tr><td>Cosmético</td><td class="mono">Bs 3.20</td><td class="mono">Bs 3.40</td><td class="mono val-gold">Bs 4.20</td><td class="mono">Bs 5.20</td></tr>
+              <tr><td>Dermatológico</td><td class="mono">Bs 3.80</td><td class="mono">Bs 4.00</td><td class="mono val-gold">Bs 4.80</td><td class="mono">Bs 5.80</td></tr>
+              <tr><td>Natural</td><td class="mono">Bs 3.40</td><td class="mono">Bs 3.60</td><td class="mono val-gold">Bs 4.40</td><td class="mono">Bs 5.40</td></tr>
+              <tr><td>Institucional</td><td class="mono">Bs 2.90</td><td class="mono">Bs 3.10</td><td class="mono val-gold">Bs 3.90</td><td class="mono">Bs 4.90</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="anx-table-wrap" style="margin-top:16px;">
+          <table class="anx-table">
+            <thead><tr><th>Producto</th><th>Descripción de atributos diferenciadores</th></tr></thead>
+            <tbody>
+              <tr><td>Básico</td><td>Jabón de uso general sin atributo diferenciador específico. Formulación estándar con ingredientes de bajo costo. Apto para higiene cotidiana masiva.</td></tr>
+              <tr><td>Antibacterial</td><td>Contiene agentes antimicrobianos activos. Formulado para reducción de bacterias en el lavado de manos. Atributo funcional verificable.</td></tr>
+              <tr><td>Cosmético</td><td>Incorpora ingredientes activos para cuidado y embellecimiento: humectantes, fragancias selectas, nutrientes. Orientado al bienestar y experiencia sensorial.</td></tr>
+              <tr><td>Dermatológico</td><td>Formulación hipoalergénica con pH neutro o ligeramente ácido. Desarrollado para pieles sensibles, con dermatitis o condiciones cutáneas. Requiere respaldo técnico.</td></tr>
+              <tr><td>Natural</td><td>Elaborado con ingredientes de origen vegetal o mineral sin síntesis química artificial. Libre de parabenos, sulfatos y colorantes. Atractivo para consumidores con conciencia ambiental.</td></tr>
+              <tr><td>Institucional</td><td>Diseñado para uso corporativo, hospitalario, hotelero o educativo. Prioriza la eficiencia en costo-uso sobre atributos diferenciadores.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> El costo base <strong>no incluye</strong>: (1) el costo adicional por unidad del canal de distribución, ni (2) el efecto de la innovación. El costo unitario final se calcula en el Paso 3 del motor (ver Anexo F).</div>
+      </div>
+
+      <!-- ── ANEXO B ──────────────────────────────── -->
+      <div class="annex-section" id="anx-b">
+        <div class="annex-section-header">
+          <div class="anx-badge">B</div>
+          <div>
+            <h4>Descripción de los Segmentos de Mercado</h4>
+            <p>7 segmentos con demanda formal, tendencia y perfil del consumidor tipo</p>
+          </div>
+        </div>
+        <div class="formula-box">
+          <span class="f-label">Demanda formal</span>
+          Demanda formal = Demanda base × (1 − % Contrabando)
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Segmento</th><th>Demanda base</th><th>% Contrabando</th><th>Demanda formal</th><th>Tendencia</th></tr></thead>
+            <tbody>
+              <tr><td>Masivo popular</td><td class="mono">40,000</td><td class="mono val-neg">30%</td><td class="mono val-gold">28,000</td><td>Estable</td></tr>
+              <tr><td>Masivo aspiracional</td><td class="mono">18,000</td><td class="mono">20%</td><td class="mono val-gold">14,400</td><td>Creciente</td></tr>
+              <tr><td>Funcional familiar</td><td class="mono">16,000</td><td class="mono">15%</td><td class="mono val-gold">13,600</td><td>Creciente</td></tr>
+              <tr><td>Cosmético</td><td class="mono">14,000</td><td class="mono">10%</td><td class="mono val-gold">12,600</td><td>Estable</td></tr>
+              <tr><td>Dermatológico</td><td class="mono">10,000</td><td class="mono val-pos">5%</td><td class="mono val-gold">9,500</td><td>Creciente</td></tr>
+              <tr><td>Natural</td><td class="mono">12,000</td><td class="mono">12%</td><td class="mono val-gold">10,560</td><td><strong style="color:#4CAF50">Alto crecimiento</strong></td></tr>
+              <tr><td>Institucional</td><td class="mono">10,000</td><td class="mono val-pos">3%</td><td class="mono val-gold">9,700</td><td>Estable</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="anx-table-wrap" style="margin-top:14px;">
+          <table class="anx-table">
+            <thead><tr><th>Segmento</th><th>Perfil del consumidor</th><th>Motivación de compra principal</th></tr></thead>
+            <tbody>
+              <tr><td>Masivo popular</td><td>Hogares de ingresos bajos a medios bajos. Compra en mercados de barrio y ferias.</td><td>Precio mínimo. Alta sensibilidad. El contrabando es un sustituto directo.</td></tr>
+              <tr><td>Masivo aspiracional</td><td>Hogares de ingresos medios en ascenso. Compra en supermercados y tiendas de cadena.</td><td>Relación calidad-precio. Dispuesto a pagar un pequeño diferencial por marca.</td></tr>
+              <tr><td>Funcional familiar</td><td>Familias con niños o adultos mayores. Priorizan efectividad comprobable.</td><td>Funcionalidad verificable. El atributo antibacterial es un requisito, no un diferencial.</td></tr>
+              <tr><td>Cosmético</td><td>Mujeres adultas de ingresos medios-altos. Alta implicación con la imagen personal.</td><td>Experiencia sensorial: fragancia, textura, empaque. Alta disposición a pagar.</td></tr>
+              <tr><td>Dermatológico</td><td>Personas con condiciones cutáneas. Frecuentemente recomendado por médicos.</td><td>Necesidad médica o preventiva. Baja sensibilidad al precio. Alta lealtad.</td></tr>
+              <tr><td>Natural</td><td>Consumidores con conciencia ambiental. Ingresos medios-altos. Mercado en crecimiento acelerado.</td><td>Valores: sustentabilidad, ingredientes limpios, origen verificable.</td></tr>
+              <tr><td>Institucional</td><td>Empresas, hospitales, hoteles. Compras por volumen con procesos de cotización.</td><td>Eficiencia de costo por dosis. Contratos de suministro. La fuerza de ventas es clave.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ANEXO C ──────────────────────────────── -->
+      <div class="annex-section" id="anx-c">
+        <div class="annex-section-header">
+          <div class="anx-badge">C</div>
+          <div>
+            <h4>Matriz de Afinidad Producto × Segmento</h4>
+            <p>Tabla 6×7 con valores de afinidad de +3 (ajuste perfecto) a -2 (mal ajuste severo)</p>
+          </div>
+        </div>
+        <div class="anx-table-wrap" style="margin-bottom:14px;">
+          <table class="anx-table">
+            <thead><tr><th>Escala</th><th>Significado</th><th>Interpretación</th></tr></thead>
+            <tbody>
+              <tr><td><span class="val-pos">+3</span></td><td>Ajuste perfecto</td><td>El producto responde exactamente a la necesidad principal del segmento.</td></tr>
+              <tr><td><span class="val-pos">+2</span></td><td>Buen ajuste</td><td>El producto satisface bien la necesidad, aunque no es su uso primario.</td></tr>
+              <tr><td><span class="val-pos">+1</span></td><td>Ajuste aceptable</td><td>Hay compatibilidad, pero el producto no está optimizado para ese segmento.</td></tr>
+              <tr><td><span class="val-neu">0</span></td><td>Neutral</td><td>El consumidor no percibe ni ventaja ni desventaja particular.</td></tr>
+              <tr><td><span class="val-neg">-1</span></td><td>Mal ajuste leve</td><td>El producto no encaja con las expectativas del segmento. Penaliza ligeramente.</td></tr>
+              <tr><td><span class="val-neg">-2</span></td><td>Mal ajuste severo</td><td>El producto es percibido como inapropiado. Penaliza fuertemente el atractivo.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead>
+              <tr>
+                <th>Producto \ Segmento</th>
+                <th class="center">Masivo popular</th>
+                <th class="center">Masivo aspiracional</th>
+                <th class="center">Func. familiar</th>
+                <th class="center">Cosmético</th>
+                <th class="center">Dermatológico</th>
+                <th class="center">Natural</th>
+                <th class="center">Institucional</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Básico</td>
+                <td class="center val-pos">+3</td><td class="center val-pos">+1</td><td class="center val-pos">+2</td>
+                <td class="center val-neg">-2</td><td class="center val-neg">-2</td><td class="center val-neg">-1</td><td class="center val-neu">0</td>
+              </tr>
+              <tr>
+                <td>Antibacterial</td>
+                <td class="center val-pos">+2</td><td class="center val-pos">+1</td><td class="center val-pos">+3</td>
+                <td class="center val-neu">0</td><td class="center val-pos">+1</td><td class="center val-neu">0</td><td class="center val-pos">+1</td>
+              </tr>
+              <tr>
+                <td>Cosmético</td>
+                <td class="center val-neg">-2</td><td class="center val-pos">+2</td><td class="center val-neu">0</td>
+                <td class="center val-pos">+3</td><td class="center val-pos">+1</td><td class="center val-pos">+1</td><td class="center val-neg">-2</td>
+              </tr>
+              <tr>
+                <td>Dermatológico</td>
+                <td class="center val-neg">-2</td><td class="center val-neu">0</td><td class="center val-pos">+1</td>
+                <td class="center val-pos">+1</td><td class="center val-pos">+3</td><td class="center val-pos">+1</td><td class="center val-neg">-2</td>
+              </tr>
+              <tr>
+                <td>Natural</td>
+                <td class="center val-neg">-1</td><td class="center val-pos">+1</td><td class="center val-pos">+1</td>
+                <td class="center val-pos">+1</td><td class="center val-pos">+1</td><td class="center val-pos">+3</td><td class="center val-neg">-2</td>
+              </tr>
+              <tr>
+                <td>Institucional</td>
+                <td class="center val-neg">-2</td><td class="center val-neg">-2</td><td class="center val-neu">0</td>
+                <td class="center val-neg">-2</td><td class="center val-neg">-2</td><td class="center val-neg">-2</td><td class="center val-pos">+3</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> La afinidad es <strong>configurable por el administrador</strong> desde Admin → 🔢 Afinidad. Los valores mostrados corresponden a la configuración por defecto. Consulta con tu profesor si han sido modificados.</div>
+      </div>
+
+      <!-- ── ANEXO D ──────────────────────────────── -->
+      <div class="annex-section" id="anx-d">
+        <div class="annex-section-header">
+          <div class="anx-badge">D</div>
+          <div>
+            <h4>Canales de Distribución — Parámetros Completos</h4>
+            <p>5 canales con costo unitario, comisión, factor vendedores y bono de atractivo</p>
+          </div>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead>
+              <tr><th>Canal</th><th>Costo adic./unid</th><th>Comisión s/ventas brutas</th><th>Factor impacto vendedores</th><th>Bono atractivo base</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Mercado</td><td class="mono val-pos">Bs 0.20</td><td class="mono">8%</td><td class="mono">0.40</td><td class="mono">2</td></tr>
+              <tr><td>Supermercado</td><td class="mono">Bs 0.45</td><td class="mono">15%</td><td class="mono">0.70</td><td class="mono">2</td></tr>
+              <tr><td>Farmacia</td><td class="mono val-neg">Bs 0.60</td><td class="mono val-neg">18%</td><td class="mono">0.80</td><td class="mono">2</td></tr>
+              <tr><td>Digital</td><td class="mono">Bs 0.35</td><td class="mono">10%</td><td class="mono val-neg">0.20</td><td class="mono">2</td></tr>
+              <tr><td>Institucional</td><td class="mono val-pos">Bs 0.25</td><td class="mono">12%</td><td class="mono val-pos">1.00</td><td class="mono">2</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="anx-table-wrap" style="margin-top:14px;">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>¿Dónde aparece en el cálculo?</th><th>Efecto sobre la empresa</th></tr></thead>
+            <tbody>
+              <tr><td>Costo adicional / unid</td><td>Se suma al costo base y calidad para formar el CU</td><td>Aumenta el costo de producción y distribución por unidad, independientemente del volumen vendido</td></tr>
+              <tr><td>Comisión sobre ventas brutas</td><td>Se deduce de ventas brutas para obtener ventas netas</td><td>Reduce los ingresos reales: mayor comisión = menor margen bruto disponible</td></tr>
+              <tr><td>Factor impacto vendedores</td><td>Multiplica el número de vendedores finales en la fórmula del atractivo</td><td>Determina cuánto contribuye cada vendedor al atractivo en ese canal específico</td></tr>
+              <tr><td>Bono de atractivo base</td><td>Se suma directamente al atractivo competitivo</td><td>Igual para todos los canales (valor: 2). Si hay canal secundario, se promedia.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="formula-box">
+          <span class="f-label">Canal secundario — cálculo del parámetro efectivo</span>
+          Parámetro efectivo = (Parámetro canal principal + Parámetro canal secundario) / 2
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> El canal <strong>Institucional</strong> tiene factor de vendedores = 1.00, el más alto del sistema. Cada vendedor adicional genera 1.00 punto directo de atractivo, frente a 0.20 del canal Digital. Este valor no implica una recomendación — depende del segmento y la estructura de costos.</div>
+      </div>
+
+      <!-- ── ANEXO E ──────────────────────────────── -->
+      <div class="annex-section" id="anx-e">
+        <div class="annex-section-header">
+          <div class="anx-badge">E</div>
+          <div>
+            <h4>Parámetros Financieros del Simulador</h4>
+            <p>Todos los parámetros configurados por el administrador — iguales para todos los equipos</p>
+          </div>
+        </div>
+
+        <p class="step-badge">E.1 · Capital y activos iniciales por equipo</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>Valor</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td>Capital inicial total</td><td class="mono val-gold">Bs 150,000</td><td>Patrimonio total con el que inicia cada empresa.</td></tr>
+              <tr><td>Caja inicial (T1)</td><td class="mono val-gold">Bs 50,000</td><td>Efectivo disponible al inicio del Trimestre 1.</td></tr>
+              <tr><td>Activos fijos iniciales</td><td class="mono">Bs 80,000</td><td>Valor contable de planta y equipo. Se deprecia Bs 2,000 por trimestre.</td></tr>
+              <tr><td>Inventario inicial</td><td class="mono">0 unidades</td><td>No hay stock inicial. El primer trimestre parte desde cero.</td></tr>
+              <tr><td>CxC inicial</td><td class="mono">Bs 0</td><td>Sin cuentas por cobrar al inicio.</td></tr>
+              <tr><td>Deuda inicial</td><td class="mono">Bs 0</td><td>Sin deudas al comenzar.</td></tr>
+              <tr><td>Capacidad máx. de producción</td><td class="mono val-neg">20,000 unid/trim</td><td>Límite físico. No se puede superar en ningún trimestre.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">E.2 · Costos fijos operativos (por trimestre)</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>Valor</th><th>Naturaleza</th></tr></thead>
+            <tbody>
+              <tr><td>Gasto administrativo fijo</td><td class="mono">Bs 8,000</td><td>Salida de caja. Aparece en el P&L como gasto operativo.</td></tr>
+              <tr><td>Gasto fijo de planta</td><td class="mono">Bs 5,000</td><td>Salida de caja. Aparece en el P&L como gasto operativo.</td></tr>
+              <tr><td>Depreciación trimestral</td><td class="mono">Bs 2,000</td><td><strong style="color:#F39C12">NO es salida de caja.</strong> Reduce el valor de activos fijos y aparece en el P&L.</td></tr>
+              <tr><td>Costo almacenamiento/unidad</td><td class="mono">Bs 0.10/unid</td><td>Se cobra por cada unidad en inventario FINAL del trimestre. Salida de caja.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">E.3 · Ventas y cobranzas</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>Valor</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td>% ventas cobradas al contado</td><td class="mono val-gold">70%</td><td>El 70% de las ventas netas ingresa a caja en el mismo trimestre.</td></tr>
+              <tr><td>% ventas a crédito</td><td class="mono">30%</td><td>El 30% queda como Cuentas por Cobrar (CxC) y se cobra el trimestre siguiente.</td></tr>
+              <tr><td>Plazo de cobro de CxC</td><td class="mono">1 trimestre</td><td>Las CxC del trimestre N se cobran completamente en el trimestre N+1.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">E.4 · Financiamiento</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>Valor</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td>Tasa préstamo operativo</td><td class="mono val-neg">4% trimestral</td><td>Se aplica sobre el monto total del préstamo cada trimestre vigente.</td></tr>
+              <tr><td>Tasa préstamo de inversión</td><td class="mono">3% trimestral</td><td>Tasa menor para financiamiento de mayor plazo.</td></tr>
+              <tr><td>Tasa de sobregiro</td><td class="mono val-neg">6% trimestral</td><td>Se activa automáticamente si la caja llega a negativo. No es una decisión del equipo.</td></tr>
+              <tr><td>Comisión de apertura</td><td class="mono">1% del monto</td><td>Se paga una sola vez al tomar el préstamo. Salida inmediata de caja.</td></tr>
+              <tr><td>Plazo préstamo operativo</td><td class="mono">2 trimestres</td><td>El capital se divide en cuotas iguales durante este plazo.</td></tr>
+              <tr><td>Plazo préstamo de inversión</td><td class="mono">4 trimestres</td><td>El capital se divide en cuotas iguales durante este plazo.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">E.5 · Fuerza de ventas</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>Valor</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td>Vendedores iniciales</td><td class="mono">2</td><td>Todos los equipos comienzan con 2 vendedores activos.</td></tr>
+              <tr><td>Sueldo trimestral/vendedor</td><td class="mono">Bs 2,400</td><td>Se paga a todos los vendedores finales del trimestre.</td></tr>
+              <tr><td>Costo de contratación</td><td class="mono">Bs 500 por vendedor</td><td>Costo único al contratar en ese trimestre. Se suma al sueldo.</td></tr>
+              <tr><td>Costo de despido</td><td class="mono">Bs 800 por vendedor</td><td>Indemnización pagada en el trimestre en que se despide.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">E.6 · Investigación de mercado e innovación</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Parámetro</th><th>Valor</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td>Costo reporte Básico</td><td class="mono">Bs 4,000</td><td>Deducido de caja en el trimestre en que se compra.</td></tr>
+              <tr><td>Costo reporte Premium</td><td class="mono">Bs 7,500</td><td>Incluye todo el Básico más participación de mercado y sensibilidad.</td></tr>
+              <tr><td>Factor innovación Producto</td><td class="mono">0.333</td><td>Multiplicador del cociente (Monto/Producción) para el incremento del CU.</td></tr>
+              <tr><td>Factor innovación Proceso</td><td class="mono">0.333</td><td>Mismo multiplicador, pero para la reducción del CU.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ANEXO F ──────────────────────────────── -->
+      <div class="annex-section" id="anx-f">
+        <div class="annex-section-header">
+          <div class="anx-badge">F</div>
+          <div>
+            <h4>Fórmulas del Motor de Cálculo</h4>
+            <p>9 pasos secuenciales y deterministas — los mismos inputs siempre producen el mismo output</p>
+          </div>
+        </div>
+
+        <p class="step-badge">Paso 1 · Fuerza de Ventas</p>
+        <div class="formula-box">Vendedores finales = Vendedores iniciales + Contratados − Despedidos<br>Costo vendedores = (Vend.finales × Bs 2,400) + (Contratados × Bs 500) + (Despedidos × Bs 800)</div>
+
+        <p class="step-badge">Paso 2 · Gasto Total de Marketing</p>
+        <div class="formula-box">Gasto mkt = Publicidad + Promoción + Eventos + Redes + RRPP + Costo vendedores</div>
+
+        <p class="step-badge">Paso 3 · Costo Unitario de Producción</p>
+        <div class="formula-box">CU = Costo base + (0.20 × Calidad) + Costo canal prom. ± (Monto innov. / Producción) × 0.333<br><span style="color:var(--muted);font-size:.73rem;">+ si Innovación de Producto (sube CU) / − si Innovación de Proceso (baja CU) / 0 si no innova</span></div>
+
+        <p class="step-badge">Paso 4 · Atractivo Competitivo</p>
+        <div class="formula-box">A = Afinidad + 0.8×Calidad + 0.0001×GastoMkt − 0.7×Precio + 2 (bono canal) + Vend.finales × Factor canal</div>
+
+        <p class="step-badge">Paso 5 · Market Share</p>
+        <div class="formula-box">Share = Atractivo del equipo / (Σ Atractivos de todos los equipos en el segmento + Índice externo)<br><span style="color:var(--muted);font-size:.73rem;">El índice externo es la suma de atractivos de actores de competencia externa configurados (ver Anexo K)</span></div>
+
+        <p class="step-badge">Paso 6 · Ventas Reales</p>
+        <div class="formula-box">Demanda asignada = Demanda formal del segmento × Share<br>Inventario disponible = Inventario inicial (unid) + Producción del trimestre<br>Ventas reales = min(Demanda asignada, Inventario disponible)<br>Inventario final = Inventario disponible − Ventas reales</div>
+
+        <p class="step-badge">Paso 7 · Ventas Brutas, Comisiones y Ventas Netas</p>
+        <div class="formula-box">Ventas brutas = Ventas reales × Precio de venta<br>Comisiones = Ventas brutas × % Comisión del canal (promedio si hay canal secundario)<br>Ventas netas = Ventas brutas − Comisiones</div>
+
+        <p class="step-badge">Paso 8 · Costo de Ventas, Utilidad Bruta y Almacenamiento</p>
+        <div class="formula-box">Costo de ventas = Ventas reales × Costo unitario<br>Utilidad bruta = Ventas netas − Costo de ventas<br>Costo almacenamiento = Inventario final (unid) × Bs 0.10/unid<br>Inventario final valorizado = Inventario final (unid) × Costo unitario</div>
+
+        <p class="step-badge">Paso 9 · Flujo de Caja y Sobregiro</p>
+        <div class="formula-box">Cobros al contado = Ventas netas × 70%<br>Cobros de CxC = CxC inicial (del trimestre anterior)<br>CxC final = Ventas netas × 30%<br>Caja preliminar = Caja inicial + Cobros contado + Cobros CxC + Ingreso préstamo − Total pagos<br><br>Si Caja preliminar &lt; 0:<br>  Sobregiro = −(Caja preliminar) → Interés sobregiro = Sobregiro × 6% → Caja final = 0<br>Si Caja preliminar ≥ 0: Caja final = Caja preliminar</div>
+
+        <p class="step-badge">Propagación entre trimestres</p>
+        <div class="formula-box">Caja inicial T+1 = max(0, Caja final T)<br>CxC inicial T+1 = CxC final T<br>Deuda inicial T+1 = Deuda final T (préstamos + sobregiro)<br>Inventario inicial T+1 = Inventario final T (unidades)<br>Vendedores iniciales T+1 = Vendedores finales T<br>Activos fijos T+1 = Activos fijos T − Bs 2,000 (depreciación)<br>Resultado acumulado T+1 = Resultado acumulado T + Utilidad neta T</div>
+      </div>
+
+      <!-- ── ANEXO G ──────────────────────────────── -->
+      <div class="annex-section" id="anx-g">
+        <div class="annex-section-header">
+          <div class="anx-badge">G</div>
+          <div>
+            <h4>Glosario de Salidas del Simulador</h4>
+            <p>Definición y fórmula de cada indicador que entrega el simulador en pantalla</p>
+          </div>
+        </div>
+
+        <p class="step-badge">G.1 · Estado de Resultados (P&L)</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Línea en pantalla</th><th>Definición</th><th>Fórmula o fuente</th></tr></thead>
+            <tbody>
+              <tr><td>Ventas brutas</td><td>Ingresos potenciales antes de descontar comisiones del canal</td><td class="mono">Ventas reales × Precio de venta</td></tr>
+              <tr><td>(−) Comisiones del canal</td><td>Pago al intermediario de distribución</td><td class="mono">Ventas brutas × % comisión del canal</td></tr>
+              <tr><td>= Ventas netas</td><td>Ingresos que efectivamente recibe la empresa</td><td class="mono">Ventas brutas − Comisiones</td></tr>
+              <tr><td>(−) Costo de ventas</td><td>Costo de producir y distribuir las unidades vendidas</td><td class="mono">Ventas reales × Costo unitario</td></tr>
+              <tr><td>= Utilidad bruta</td><td>Primer margen: diferencia entre ingresos y costos directos</td><td class="mono">Ventas netas − Costo de ventas</td></tr>
+              <tr><td>(−) Publicidad / Promoción / Eventos / Redes / RRPP</td><td>Gastos en marketing decididos por el equipo</td><td class="mono">Datos de la hoja de decisiones</td></tr>
+              <tr><td>(−) Fuerza de ventas</td><td>Costo total de vendedores (sueldo + contratación + despido)</td><td class="mono">Vend.finales×2,400 + contrat.×500 + desp.×800</td></tr>
+              <tr><td>(−) Gasto administrativo fijo</td><td>Costo fijo de administración y gestión</td><td class="mono">Bs 8,000 / trimestre</td></tr>
+              <tr><td>(−) Gasto fijo de planta</td><td>Costo fijo de operación de la planta productiva</td><td class="mono">Bs 5,000 / trimestre</td></tr>
+              <tr><td>(−) Depreciación</td><td>Reducción del valor contable de activos fijos. NO sale de caja.</td><td class="mono">Bs 2,000 / trimestre</td></tr>
+              <tr><td>(−) Almacenamiento inventario</td><td>Costo de mantener el inventario no vendido</td><td class="mono">Inventario final (unid) × Bs 0.10</td></tr>
+              <tr><td>(−) Inversión en innovación</td><td>Gasto de innovación del trimestre (si eligió innovar)</td><td class="mono">Monto elegido en decisiones</td></tr>
+              <tr><td>(−) Interés préstamo</td><td>Costo financiero de los préstamos vigentes</td><td class="mono">Monto préstamo × Tasa trimestral</td></tr>
+              <tr><td>(−) Interés sobregiro</td><td>Costo financiero del sobregiro automático (si aplica)</td><td class="mono">Sobregiro × 6%</td></tr>
+              <tr><td>(−) Comisión apertura préstamo</td><td>Costo único al tomar el préstamo</td><td class="mono">Monto préstamo × 1%</td></tr>
+              <tr><td>= UTILIDAD NETA</td><td>Resultado final del trimestre después de todos los costos</td><td class="mono">Utilidad bruta − suma de todos los gastos</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">G.2 · Balance General</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Partida en pantalla</th><th>Definición</th><th>Fuente / Cálculo</th></tr></thead>
+            <tbody>
+              <tr><td colspan="3" style="background:rgba(201,168,76,0.06);color:var(--gold-lt);font-weight:600;font-size:.78rem;letter-spacing:1px;padding:8px 14px;">ACTIVOS</td></tr>
+              <tr><td>Caja y equivalentes</td><td>Efectivo disponible al cierre del trimestre</td><td class="mono">Resultado del Paso 9 del motor</td></tr>
+              <tr><td>Cuentas por cobrar (CxC)</td><td>30% de las ventas netas del trimestre, que se cobran el siguiente</td><td class="mono">Ventas netas × 30%</td></tr>
+              <tr><td>Inventarios (valorizado)</td><td>Inventario final en unidades × costo unitario del trimestre</td><td class="mono">Inv. final (unid) × CU</td></tr>
+              <tr><td>Activos fijos netos</td><td>Valor contable de planta y equipo después de depreciación</td><td class="mono">AF iniciales − Bs 2,000 × N trimestres</td></tr>
+              <tr><td colspan="3" style="background:rgba(192,57,43,0.06);color:#EF9A9A;font-weight:600;font-size:.78rem;letter-spacing:1px;padding:8px 14px;">PASIVOS</td></tr>
+              <tr><td>Deuda de préstamos</td><td>Saldo pendiente de todos los préstamos tomados</td><td class="mono">Deuda inicial + Ingreso − Cuotas pagadas</td></tr>
+              <tr><td>Sobregiro bancario</td><td>Deuda automática generada por caja negativa (si aplica)</td><td class="mono">Igual al monto del sobregiro activado</td></tr>
+              <tr><td colspan="3" style="background:rgba(46,139,87,0.06);color:#81C784;font-weight:600;font-size:.78rem;letter-spacing:1px;padding:8px 14px;">PATRIMONIO</td></tr>
+              <tr><td>Capital contable</td><td>Capital original. No varía con los resultados.</td><td class="mono">Bs 130,000 (caja inicial + AF iniciales)</td></tr>
+              <tr><td>Resultado acumulado</td><td>Suma de todas las utilidades netas desde el inicio (puede ser negativo)</td><td class="mono">Resultado acum. anterior + Utilidad neta T</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">G.3 · KPIs — Indicadores Clave de Desempeño</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>KPI</th><th>Grupo</th><th>Fórmula</th><th>Unidad</th></tr></thead>
+            <tbody>
+              <tr><td>Ventas reales</td><td>Ventas y Producción</td><td class="mono">min(Demanda asignada, Inv. disponible)</td><td>Unidades</td></tr>
+              <tr><td>Participación en segmento</td><td>Ventas y Producción</td><td class="mono">Atractivo equipo ÷ Denominador total × 100</td><td>%</td></tr>
+              <tr><td>Inventario / Producción</td><td>Ventas y Producción</td><td class="mono">Inventario final ÷ Producción × 100</td><td>%</td></tr>
+              <tr><td>Margen bruto</td><td>Rentabilidad</td><td class="mono">Utilidad bruta ÷ Ventas netas × 100</td><td>%</td></tr>
+              <tr><td>Margen neto</td><td>Rentabilidad</td><td class="mono">Utilidad neta ÷ Ventas netas × 100</td><td>%</td></tr>
+              <tr><td>Costo unitario</td><td>Rentabilidad</td><td class="mono">Paso 3 del motor (ver Anexo F)</td><td>Bs/unid</td></tr>
+              <tr><td>Ventas por vendedor</td><td>Fuerza de Ventas</td><td class="mono">Ventas reales ÷ Vendedores finales</td><td>Unid/vendedor</td></tr>
+              <tr><td>Endeudamiento</td><td>Situación Financiera</td><td class="mono">Deuda total ÷ Total activos × 100</td><td>%</td></tr>
+              <tr><td>Liquidez corriente</td><td>Situación Financiera</td><td class="mono">(Caja + CxC + Inv. valorizado) ÷ Deuda total</td><td>Veces (x)</td></tr>
+              <tr><td>Caja final</td><td>Situación Financiera</td><td class="mono">Resultado del Flujo de Efectivo</td><td>Bs</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ANEXO H ──────────────────────────────── -->
+      <div class="annex-section" id="anx-h">
+        <div class="annex-section-header">
+          <div class="anx-badge">H</div>
+          <div>
+            <h4>Contenido de los Reportes de Investigación</h4>
+            <p>Qué entrega cada nivel de reporte y descripción del ranking anónimo</p>
+          </div>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Dimensión de análisis</th><th>Sin reporte (Bs 0)</th><th>Básico (Bs 4,000)</th><th>Premium (Bs 7,500)</th></tr></thead>
+            <tbody>
+              <tr><td>Demanda base por segmento</td><td class="center val-neg">❌</td><td class="center val-pos">✅ 7 segmentos</td><td class="center val-pos">✅ 7 segmentos</td></tr>
+              <tr><td>% Contrabando por segmento</td><td class="center val-neg">❌</td><td class="center val-pos">✅</td><td class="center val-pos">✅</td></tr>
+              <tr><td>Demanda formal por segmento</td><td class="center val-neg">❌</td><td class="center val-pos">✅</td><td class="center val-pos">✅</td></tr>
+              <tr><td>Tendencia de mercado</td><td class="center val-neg">❌</td><td class="center val-pos">✅</td><td class="center val-pos">✅</td></tr>
+              <tr><td>Precios observados (mín/prom/máx)</td><td class="center val-neg">❌</td><td class="center val-pos">✅ por segmento</td><td class="center val-pos">✅ por segmento</td></tr>
+              <tr><td>Alertas estratégicas generales</td><td class="center val-neg">❌</td><td class="center val-pos">✅ 4 alertas</td><td class="center val-pos">✅ 4 alertas</td></tr>
+              <tr><td>Nº de equipos por segmento</td><td class="center val-neg">❌</td><td class="center val-neg">❌</td><td class="center val-pos">✅</td></tr>
+              <tr><td>Market share máximo (anónimo)</td><td class="center val-neg">❌</td><td class="center val-neg">❌</td><td class="center val-pos">✅</td></tr>
+              <tr><td>Sensibilidad del consumidor</td><td class="center val-neg">❌</td><td class="center val-neg">❌</td><td class="center val-pos">✅ por segmento</td></tr>
+              <tr><td>Recomendaciones estratégicas</td><td class="center val-neg">❌</td><td class="center val-neg">❌</td><td class="center val-pos">✅ rangos orientativos</td></tr>
+              <tr><td>Ranking anónimo</td><td class="center val-pos">✅ SIEMPRE</td><td class="center val-pos">✅ SIEMPRE</td><td class="center val-pos">✅ SIEMPRE</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="step-badge">H.1 · Ranking Anónimo — Descripción detallada</p>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Columna que muestra</th><th>Descripción</th><th>Lo que NO revela</th></tr></thead>
+            <tbody>
+              <tr><td>Posición (#)</td><td>Número de orden en el ranking de todos los equipos del curso, ordenado por utilidad neta del trimestre</td><td>El nombre del equipo en esa posición (excepto el tuyo, marcado con ⭐)</td></tr>
+              <tr><td>Utilidad neta</td><td>Resultado del período de cada equipo</td><td>A qué equipo corresponde ese resultado</td></tr>
+              <tr><td>Ventas (unidades)</td><td>Unidades vendidas en el trimestre</td><td>El segmento en el que compite ese equipo</td></tr>
+              <tr><td>Market share</td><td>Porcentaje de participación en su segmento</td><td>El segmento de referencia ni el nombre del equipo</td></tr>
+              <tr><td>Caja final</td><td>Efectivo disponible al cierre</td><td>La estructura de deuda ni la estrategia de financiamiento</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> El ranking es anónimo por diseño: preserva la confidencialidad estratégica. No es posible inferir directamente cuál equipo tiene qué estrategia, aunque sí es posible analizar patrones (ej.: el equipo con mayor market share y menor precio probablemente compite en masivos).</div>
+      </div>
+
+      <!-- ── ANEXO I ──────────────────────────────── -->
+      <div class="annex-section" id="anx-i">
+        <div class="annex-section-header">
+          <div class="anx-badge">I</div>
+          <div>
+            <h4>Flujo de Estados de la Ronda</h4>
+            <p>Los 5 estados posibles y qué ocurre en cada transición</p>
+          </div>
+        </div>
+        <div class="state-flow">
+          <span class="state-badge state-pending">⏸ PENDIENTE</span>
+          <span class="arrow">→</span>
+          <span class="state-badge state-open">🟢 ABIERTA</span>
+          <span class="arrow">→</span>
+          <span class="state-badge state-closed">🔒 CERRADA</span>
+          <span class="arrow">→</span>
+          <span class="state-badge state-presim">📊 PRE-SIM.</span>
+          <span class="arrow">→</span>
+          <span class="state-badge state-done">✅ SIMULADA</span>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Estado</th><th>¿Qué puede hacer el equipo?</th><th>¿Qué activa el profesor?</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="state-badge state-pending">⏸ PENDIENTE</span></td>
+                <td>Solo ver la hoja en modo lectura. No puede editar ni enviar.</td>
+                <td>▶ Activar Hoja de Decisiones → pasa a ABIERTA</td>
+              </tr>
+              <tr>
+                <td><span class="state-badge state-open">🟢 ABIERTA</span></td>
+                <td>Editar y guardar borradores ilimitadas veces. Enviar cuando esté listo.</td>
+                <td>📊 Pre-simular O 🔒 Cerrar envíos → pasa a CERRADA</td>
+              </tr>
+              <tr>
+                <td><span class="state-badge state-closed">🔒 CERRADA</span></td>
+                <td>Ver la hoja en modo lectura. No puede modificar ni reenviar.</td>
+                <td>📊 Pre-simular O ⚡ Ejecutar Simulación directamente</td>
+              </tr>
+              <tr>
+                <td><span class="state-badge state-presim">📊 PRE-SIMULACIÓN</span></td>
+                <td>Ver demanda estimada, share, ventas estimadas e inventario proyectado. Hacer clic en ✓ Confirmar.</td>
+                <td>⚡ Ejecutar Simulación Final (cuando todos confirmaron) O ⏩ Forzar confirmaciones</td>
+              </tr>
+              <tr>
+                <td><span class="state-badge state-done">✅ SIMULADA</span></td>
+                <td>Acceder a Estados Financieros, KPIs, Investigación (ranking + reportes) y Mis Créditos.</td>
+                <td>→ Abrir Ronda siguiente → pasa a PENDIENTE con saldos propagados</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> El estado Pre-simulación es <strong>opcional</strong>: el profesor puede ir directamente de ABIERTA o CERRADA a ejecutar la simulación. La Pre-simulación existe para que los equipos conozcan su demanda estimada antes de que se generen los estados financieros definitivos.</div>
+      </div>
+
+      <!-- ── ANEXO J ──────────────────────────────── -->
+      <div class="annex-section" id="anx-j">
+        <div class="annex-section-header">
+          <div class="anx-badge">J</div>
+          <div>
+            <h4>Propagación de Saldos entre Trimestres</h4>
+            <p>Qué variables se heredan automáticamente de una ronda a la siguiente — el equipo no puede modificar estos saldos iniciales</p>
+          </div>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Variable propagada</th><th>Cálculo de propagación</th><th>Dónde aparece en T+1</th><th>¿Puede ser cero?</th></tr></thead>
+            <tbody>
+              <tr><td>Caja inicial</td><td class="mono">max(0, Caja final T) — si era negativa (sobregiro), se propaga como 0</td><td>Saldo inicial en la hoja de decisiones</td><td class="center">Sí</td></tr>
+              <tr><td>CxC inicial</td><td class="mono">30% de las ventas netas de T — se cobra íntegramente en T+1</td><td>Flujo de caja de T+1 como "Cobros CxC anterior"</td><td class="center">Sí</td></tr>
+              <tr><td>Deuda inicial</td><td class="mono">Saldo de préstamos pendientes + sobregiro acumulado de T</td><td>Afecta el cálculo de cuotas a pagar en T+1</td><td class="center">Sí</td></tr>
+              <tr><td>Inventario inicial (unid)</td><td class="mono">Unidades no vendidas en T — se suman a la producción de T+1</td><td>Inventario disponible = Inv.ini T+1 + Producción T+1</td><td class="center">Sí</td></tr>
+              <tr><td>Vendedores iniciales</td><td class="mono">Número de vendedores al cierre de T</td><td>Campo visible en la hoja de decisiones</td><td class="center">No</td></tr>
+              <tr><td>Activos fijos iniciales</td><td class="mono">Activos fijos T − Bs 2,000 (depreciación del trimestre T)</td><td>Aparece en el Balance General de T+1</td><td class="center">No</td></tr>
+              <tr><td>Resultado acumulado</td><td class="mono">Resultado acum. T = Resultado acum. T-1 + Utilidad neta T</td><td>Componente del Patrimonio en el Balance</td><td class="center">No*</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> Las decisiones de <strong>marketing, innovación, financiamiento e investigación NO se propagan</strong>: se resetean a valores por defecto cada trimestre. El equipo debe decidir nuevamente en cada ronda. Solo los saldos financieros y operativos son heredados automáticamente.</div>
+      </div>
+
+      <!-- ── ANEXO K ──────────────────────────────── -->
+      <div class="annex-section" id="anx-k">
+        <div class="annex-section-header">
+          <div class="anx-badge">K</div>
+          <div>
+            <h4>Competencia Externa por Segmento</h4>
+            <p>Actores que no son equipos del juego pero sí compiten — reducen el market share disponible al aumentar el denominador</p>
+          </div>
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Actor</th><th>Segmento</th><th>Precio</th><th>Calidad</th><th>Gasto mkt</th><th>Participación ref.</th></tr></thead>
+            <tbody>
+              <tr><td>Contrabando genérico</td><td>Masivo popular</td><td class="mono val-pos">Bs 2.80</td><td class="mono">3/10</td><td class="mono val-pos">Bs 0</td><td class="mono val-neg">35%</td></tr>
+              <tr><td>Marca natural local</td><td>Natural</td><td class="mono">Bs 7.20</td><td class="mono val-pos">8/10</td><td class="mono">Bs 6,000</td><td class="mono val-neg">35%</td></tr>
+              <tr><td>Marca líder cosmética</td><td>Cosmético</td><td class="mono val-neg">Bs 7.80</td><td class="mono val-pos">8/10</td><td class="mono val-neg">Bs 9,000</td><td class="mono val-neg">40%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="formula-box">
+          <span class="f-label">Cálculo del atractivo externo (misma fórmula que para equipos, sin vendedores)</span>
+          Atractivo externo = Afinidad + 0.8×Calidad + 0.0001×Mkt − 0.7×Precio + 2
+          <br><br>
+          <span class="f-label">Impacto en el market share de los equipos</span>
+          Share de un equipo = Atractivo equipo / (Σ Atractivos equipos en segmento + Σ Atractivos externos en segmento)
+        </div>
+        <div class="anx-table-wrap">
+          <table class="anx-table">
+            <thead><tr><th>Segmento</th><th>Actores externos</th><th>Efecto sobre la dinámica del segmento</th></tr></thead>
+            <tbody>
+              <tr><td>Masivo popular</td><td>Contrabando genérico</td><td>El bajo precio del contrabando genera atractivo relevante. Los equipos con precio alto ven su share reducido significativamente.</td></tr>
+              <tr><td>Masivo aspiracional</td><td>Ninguno por defecto</td><td>El denominador solo incluye a los equipos que compiten en este segmento.</td></tr>
+              <tr><td>Funcional familiar</td><td>Ninguno por defecto</td><td>El denominador solo incluye a los equipos que compiten en este segmento.</td></tr>
+              <tr><td>Cosmético</td><td>Marca líder cosmética</td><td>Fuerte competidor con alto gasto de marketing y calidad. Captura parte importante del mercado premium.</td></tr>
+              <tr><td>Dermatológico</td><td>Ninguno por defecto</td><td>El denominador solo incluye a los equipos que compiten en este segmento.</td></tr>
+              <tr><td>Natural</td><td>Marca natural local</td><td>Competidor establecido en el nicho. Su participación de referencia es 35%.</td></tr>
+              <tr><td>Institucional</td><td>Ninguno por defecto</td><td>El denominador solo incluye a los equipos que compiten en este segmento.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note-box"><span class="note-icon">📌</span> Los actores externos son <strong>configurables por el administrador</strong> desde Admin → 🤝 Competencia. El profesor puede agregar, modificar o eliminar actores externos para simular cambios en el entorno competitivo (entrada de nuevas marcas, salida de competidores, etc.).</div>
+      </div>
+
+    </section><!-- /sec-anexos -->
+
+  </main>
+</div><!-- /layout -->
+
+<!-- Back to top -->
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Volver arriba">↑</button>
+
+<script>
+  // ── Sidebar mobile ──────────────────────────────
+  const sidebar  = document.getElementById('sidebar');
+  const overlay  = document.getElementById('overlay');
+  const menuToggle = document.getElementById('menuToggle');
+
+  menuToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', closeMenu);
+
+  function closeMenu() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+  }
+
+  // ── Back to top ─────────────────────────────────
+  const backTop = document.getElementById('backTop');
+  window.addEventListener('scroll', () => {
+    backTop.classList.toggle('show', window.scrollY > 400);
+  });
+
+  // ── Scroll spy ──────────────────────────────────
+  const sections = document.querySelectorAll('section[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navItems.forEach(n => n.classList.remove('active'));
+        const active = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+
+  // ── Section reveal on scroll ────────────────────
+  const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, { threshold: 0, rootMargin: '0px 0px -50px 0px' });
+
+  document.querySelectorAll('.section').forEach(s => revealObs.observe(s));
+
+  // ── Annex sections reveal ───────────────────────
+  document.querySelectorAll('.annex-section').forEach(s => revealObs.observe(s));
+
+  // ── Bibliography filter ─────────────────────────
+  function filterBib(cat) {
+    document.querySelectorAll('.bib-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    document.querySelectorAll('.bib-item').forEach(item => {
+      if (cat === 'all' || item.dataset.cat === cat) {
+        item.classList.remove('hidden');
+      } else {
+        item.classList.add('hidden');
+      }
+    });
+  }
+</script>
+</body>
+</html>
