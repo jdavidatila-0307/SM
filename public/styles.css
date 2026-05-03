@@ -1472,4 +1472,10 @@ td.warn {
     height: 58px;
   }
 }
-
+/* Imagen en el logo del sidebar */
+.sidebar-logo-img {
+  width: 36px;        /* ajusta el tamaño a tu gusto */
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
