@@ -1448,3 +1448,27 @@ td.warn {
   background: #e68a00;
   transform: translateY(-1px);
 }
+/* ==============================================
+   TAMAÑOS ESPECÍFICOS PARA LOGOS (20% más grandes)
+   ============================================== */
+/* Tamaño base para todos los logos (escritorio) */
+.login-logo-img {
+  height: 62px;      /* <-- ajusta este valor si ya lo tienes definido */
+}
+
+/* Para UAGRM y Ciencias Económicas: 20% más grande (62px → 74px) */
+.login-logo-img[alt="UAGRM"],
+.login-logo-img[alt="Ciencias Económicas"] {
+  height: 74px;
+}
+
+/* En móviles: base 48px; los dos primeros → 58px (20% más) */
+@media (max-width: 480px) {
+  .login-logo-img {
+    height: 48px;
+  }
+  .login-logo-img[alt="UAGRM"],
+  .login-logo-img[alt="Ciencias Económicas"] {
+    height: 58px;
+  }
+}
