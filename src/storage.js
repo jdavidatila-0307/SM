@@ -1,36 +1,174 @@
-/**
- * Almacenamiento persistente — v3.0 Multi-Simulación
- * Soporta JSON (local) y PostgreSQL (Render) con fallback automático.
- */
-const fs = require('fs');
-const path = require('path');
-const { hashPassword } = require('./auth');
-const CONST = require('./constants');
+const { Pool } = require('pg');
 
-console.log('[storage] Iniciando carga...');
-console.log('[storage] process.env.DATABASE_URL existe?', !!process.env.DATABASE_URL);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-let pool = null;
-let usePostgres = false;
-try {
-  if (process.env.DATABASE_URL) {
-    console.log('[storage] Intentando cargar PostgreSQL...');
-    pool = require('./db');
-    console.log('[storage] pool cargado correctamente');
-    usePostgres = true;
-  } else {
-    console.log('[storage] No se encontró DATABASE_URL, usando JSON local');
-  }
-} catch(e) {
-  console.log('[storage] Error cargando PostgreSQL:', e.message);
-  console.log('[storage] Usando JSON local como fallback');
+// ============================================================
+//  FUNCIONES DE USUARIOS
+// ============================================================
+async function findUserById(id) {
+  const res = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
+  return res.rows[0] || null;
 }
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
+async function findUserByEmailOrId(identifier) {
+  const res = await pool.query(
+    'SELECT * FROM usuarios WHERE id = $1 OR email = $1',
+    [identifier]
+  );
+  return res.rows[0] || null;
+}
 
-// ── Funciones helper (originales) ──────────────────────────
+async function createUser(id, nombre, email, passwordHash, passwordPlain, rol) {
+  await pool.query(
+    `INSERT INTO usuarios (id, nombre, email, password_hash, password_plain, rol)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, nombre, email, passwordHash, passwordPlain, rol]
+  );
+}
+
+async function listUsers(rol = null) {
+  const query = rol ? 'SELECT * FROM usuarios WHERE rol = $1' : 'SELECT * FROM usuarios';
+  const params = rol ? [rol] : [];
+  const res = await pool.query(query, params);
+  return res.rows;
+}
+
+async function deleteUser(id) {
+  await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
+}
+
+// ============================================================
+//  FUNCIONES DE SIMULACIONES
+// ============================================================
+async function createSimulacion(ownerId, simData) {
+  const {
+    id, nombre, descripcion, codigoAcceso, estado, creadaAt,
+    config, parametros, tiposProducto, canales, segmentos,
+    afinidadMatrix, competenciaExterna, rondas, users
+  } = simData;
+  await pool.query(
+    `INSERT INTO simulaciones (
+      id, owner_id, nombre, descripcion, codigo_acceso, estado, creada_at,
+      config, parametros, tipos_producto, canales, segmentos,
+      afinidad_matrix, competencia_externa, rondas, users
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+    [id, ownerId, nombre, descripcion, codigoAcceso, estado, creadaAt,
+     config, parametros, tiposProducto, canales, segmentos,
+     afinidadMatrix, competenciaExterna, rondas, users]
+  );
+}
+
+async function getSimulacion(id, ownerId = null) {
+  let query = 'SELECT * FROM simulaciones WHERE id = $1';
+  const params = [id];
+  if (ownerId) {
+    query += ' AND owner_id = $2';
+    params.push(ownerId);
+  }
+  const res = await pool.query(query, params);
+  return res.rows[0] || null;
+}
+
+async function listSimulaciones(ownerId = null) {
+  let query = 'SELECT * FROM simulaciones';
+  const params = [];
+  if (ownerId) {
+    query += ' WHERE owner_id = $1';
+    params.push(ownerId);
+  }
+  query += ' ORDER BY creada_at DESC';
+  const res = await pool.query(query, params);
+  return res.rows;
+}
+
+async function updateSimulacion(id, updates, ownerId = null) {
+  const allowedFields = [
+    'nombre', 'descripcion', 'estado', 'codigo_acceso', 'config',
+    'parametros', 'tipos_producto', 'canales', 'segmentos',
+    'afinidad_matrix', 'competencia_externa', 'rondas', 'users'
+  ];
+  const setClauses = [];
+  const values = [];
+  let idx = 1;
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      setClauses.push(`${field} = $${idx}`);
+      values.push(updates[field]);
+      idx++;
+    }
+  }
+  if (setClauses.length === 0) return;
+  values.push(id);
+  if (ownerId) {
+    values.push(ownerId);
+    await pool.query(
+      `UPDATE simulaciones SET ${setClauses.join(', ')} WHERE id = $${idx} AND owner_id = $${idx+1}`,
+      values
+    );
+  } else {
+    await pool.query(
+      `UPDATE simulaciones SET ${setClauses.join(', ')} WHERE id = $${idx}`,
+      values
+    );
+  }
+}
+
+async function deleteSimulacion(id, ownerId = null) {
+  let query = 'DELETE FROM simulaciones WHERE id = $1';
+  const params = [id];
+  if (ownerId) {
+    query += ' AND owner_id = $2';
+    params.push(ownerId);
+  }
+  await pool.query(query, params);
+}
+
+// ============================================================
+//  EQUIPOS (dentro de una simulación)
+// ============================================================
+async function getEquipos(simulacionId, ownerId = null) {
+  const sim = await getSimulacion(simulacionId, ownerId);
+  if (!sim) return [];
+  return sim.users || [];
+}
+
+async function addEquipo(simulacionId, equipo, ownerId = null) {
+  const sim = await getSimulacion(simulacionId, ownerId);
+  if (!sim) throw new Error('Simulación no encontrada');
+  const users = sim.users || [];
+  users.push(equipo);
+  await updateSimulacion(simulacionId, { users }, ownerId);
+}
+
+async function findUserInSimulacion(simulacionId, userId, ownerId = null) {
+  const equipos = await getEquipos(simulacionId, ownerId);
+  return equipos.find(e => e.id === userId);
+}
+
+// ============================================================
+//  RONDAS
+// ============================================================
+async function getRonda(simulacionId, n, ownerId = null) {
+  const sim = await getSimulacion(simulacionId, ownerId);
+  if (!sim) return null;
+  const rondas = sim.rondas || {};
+  return rondas[String(n)];
+}
+
+async function updateRonda(simulacionId, n, data, ownerId = null) {
+  const sim = await getSimulacion(simulacionId, ownerId);
+  if (!sim) throw new Error('Simulación no encontrada');
+  const rondas = sim.rondas || {};
+  rondas[String(n)] = { ...rondas[String(n)], ...data };
+  await updateSimulacion(simulacionId, { rondas }, ownerId);
+}
+
+// Decisión por defecto (misma que antes)
 function defaultDecision(equipoId, equipoNombre, params) {
-  const p = params || CONST.PARAMS;
+  const p = params || {};
   return {
     equipo: equipoId, equipoNombre,
     producto: 'Básico', segmentoObjetivo: 'Masivo popular',
@@ -42,248 +180,138 @@ function defaultDecision(equipoId, equipoNombre, params) {
     tipoPrestamo: 'Ninguno', montoPrestamo: 0, plazoPrestamo: 2, amortizacion: 0,
     innovacion: false, tipoInnovacion: '', montoInnovacion: 0,
     tipoInvestigacion: 'No',
-    vendedoresIniciales: p.vendedoresIniciales,
-    cajaInicial: p.cajaInicial, activosFijosIniciales: p.activosFijosIniciales,
-    cxcInicial: p.cxcInicial, deudaInicial: p.deudaInicial,
-    inventarioInicial: p.inventarioInicialUnid, resultadoAcumuladoAnterior: 0,
-    submitted: false, submittedAt: null,
+    vendedoresIniciales: p.vendedoresIniciales || 2,
+    cajaInicial: p.cajaInicial || 50000,
+    activosFijosIniciales: p.activosFijosIniciales || 80000,
+    cxcInicial: p.cxcInicial || 0,
+    deudaInicial: p.deudaInicial || 0,
+    inventarioInicial: p.inventarioInicialUnid || 0,
+    resultadoAcumuladoAnterior: 0,
+    submitted: false, submittedAt: null
   };
 }
 
-function genSimId()   { return 'sim_' + Date.now().toString(36); }
-function genCodigo()  {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return 'MKT-' + Array.from({length:4}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
-}
-
-function createSimData(nombre, descripcion='', totalRounds=20, baseParams=null) {
-  return {
-    nombre, descripcion,
-    creadaAt: new Date().toISOString(),
-    estado: 'activa',
-    codigoAcceso: genCodigo(),
-    config: { currentRound: 1, totalRounds, roundState: 'pending' },
-    parametros:         baseParams?.parametros        || { ...CONST.PARAMS },
-    tiposProducto:      baseParams?.tiposProducto     || Object.fromEntries(Object.entries(CONST.TIPOS_PRODUCTO).map(([k,v])=>[k,{...v}])),
-    canales:            baseParams?.canales            || Object.fromEntries(Object.entries(CONST.CANALES).map(([k,v])=>[k,{...v}])),
-    segmentos:          baseParams?.segmentos          || CONST.SEGMENTOS.map(s=>({...s})),
-    afinidadMatrix:     baseParams?.afinidadMatrix     || JSON.parse(JSON.stringify(CONST.AFINIDAD_MATRIX)),
-    competenciaExterna: baseParams?.competenciaExterna || CONST.COMPETENCIA_EXTERNA.map(c=>({...c})),
-    users:  [],
-    rondas: {},
-  };
-}
-
-function createEmptyDB() {
-  const simId = genSimId();
-  const sim   = createSimData('Simulación Principal', 'Simulación inicial del sistema');
-  sim.users.push({
-    id: 'admin', nombre: 'Administrador',
-    password: hashPassword('admin123'), passwordPlain: 'admin123',
-    rol: 'admin', miembros: [],
-  });
-  return {
-    admin: { id:'admin', nombre:'Administrador', password: hashPassword('admin123'), passwordPlain:'admin123', rol:'admin' },
-    simulaciones: { [simId]: sim },
-  };
-}
-
-function migrateV2(oldDB) {
-  console.log('[storage] Migrando base de datos v2 → v3 (multi-simulación)...');
-  const simId = genSimId();
-  const sim = {
-    nombre: 'Simulación Principal',
-    descripcion: 'Migrada automáticamente desde versión anterior',
-    creadaAt: new Date().toISOString(),
-    estado: 'activa',
-    codigoAcceso: genCodigo(),
-    config: { ...oldDB.config },
-    parametros:         oldDB.parametros        || { ...CONST.PARAMS },
-    tiposProducto:      oldDB.tiposProducto     || Object.fromEntries(Object.entries(CONST.TIPOS_PRODUCTO).map(([k,v])=>[k,{...v}])),
-    canales:            oldDB.canales            || Object.fromEntries(Object.entries(CONST.CANALES).map(([k,v])=>[k,{...v}])),
-    segmentos:          oldDB.segmentos          || CONST.SEGMENTOS.map(s=>({...s})),
-    afinidadMatrix:     oldDB.afinidadMatrix     || JSON.parse(JSON.stringify(CONST.AFINIDAD_MATRIX)),
-    competenciaExterna: oldDB.competenciaExterna || CONST.COMPETENCIA_EXTERNA.map(c=>({...c})),
-    users:  (oldDB.users || []).filter(u => u.rol === 'equipo'),
-    rondas: oldDB.rondas || {},
-  };
-  const adminUser = (oldDB.users || []).find(u => u.rol === 'admin') || 
-    { id:'admin', nombre:'Administrador', password: hashPassword('admin123'), passwordPlain:'admin123', rol:'admin' };
-  return {
-    admin: { id: adminUser.id, nombre: adminUser.nombre, password: adminUser.password, passwordPlain: adminUser.passwordPlain||'admin123', rol:'admin' },
-    simulaciones: { [simId]: sim },
-  };
-}
-
-// ── Carga/save con PostgreSQL ──────────────────────────────
-async function loadPostgres() {
-  console.log('[storage] loadPostgres: inicio');
-  try {
-    const res = await pool.query('SELECT data FROM simulaciones WHERE id = $1', ['db']);
-    if (res.rows.length > 0) {
-      console.log('[storage] loadPostgres: datos encontrados');
-      return res.rows[0].data;
-    } else {
-      console.log('[storage] loadPostgres: no data, creando db vacía');
-      const empty = createEmptyDB();
-      await pool.query('INSERT INTO simulaciones (id, data) VALUES ($1, $2)', ['db', empty]);
-      return empty;
-    }
-  } catch(e) {
-    console.error('[storage] Error en loadPostgres:', e.message);
-    throw e;
-  }
-}
-
-async function savePostgres(db) {
-  console.log('[storage] savePostgres: guardando datos');
-  try {
-    await pool.query('UPDATE simulaciones SET data = $1 WHERE id = $2', [db, 'db']);
-    console.log('[storage] savePostgres: guardado exitoso');
-  } catch(e) {
-    console.error('[storage] Error en savePostgres:', e.message);
-    throw e;
-  }
-}
-
-// ── Carga/save con JSON ────────────────────────────────────
-function loadJSON() {
-  if (!fs.existsSync(DB_PATH)) {
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const db = createEmptyDB();
-    saveJSON(db);
-    return db;
-  }
-  let db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-  if (!db.simulaciones) {
-    db = migrateV2(db);
-    saveJSON(db);
-  }
-  if (!db.admin) {
-    db.admin = { id:'admin', nombre:'Administrador', password: hashPassword('admin123'), passwordPlain:'admin123', rol:'admin' };
-    saveJSON(db);
-  }
-  return db;
-}
-
-function saveJSON(db) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
-}
-
-// ── Exportar funciones asíncronas con fallback automático ───
-let loadDB, saveDB;
-
-if (usePostgres && pool) {
-  loadDB = async () => {
-    try {
-      return await loadPostgres();
-    } catch (err) {
-      console.error('[storage] PostgreSQL falló en load, usando JSON local. Error:', err.message);
-      return loadJSON();
-    }
-  };
-  saveDB = async (db) => {
-    try {
-      await savePostgres(db);
-    } catch (err) {
-      console.error('[storage] PostgreSQL falló en save, usando JSON local. Error:', err.message);
-      saveJSON(db);
-    }
-  };
-} else {
-  loadDB = async () => loadJSON();
-  saveDB = async (db) => saveJSON(db);
-}
-
-// ── Funciones originales convertidas a async ───────────────
-async function getSim(db, simId) { return db.simulaciones[simId] || null; }
-async function listSims(db) { return Object.entries(db.simulaciones).map(([id, s]) => ({ id, ...s })); }
-async function createSim(db, nombre, descripcion='', totalRounds=20, copyFromSimId=null) {
-  const simId = genSimId();
-  const base = copyFromSimId ? db.simulaciones[copyFromSimId] : null;
-  db.simulaciones[simId] = createSimData(nombre, descripcion, totalRounds,
-    base ? { parametros: base.parametros, tiposProducto: base.tiposProducto,
-              canales: base.canales, segmentos: base.segmentos,
-              afinidadMatrix: base.afinidadMatrix, competenciaExterna: base.competenciaExterna } : null
-  );
-  return simId;
-}
-
-async function getEquipos(sim) { return (sim.users || []).filter(u => u.rol === 'equipo'); }
-async function findUserInSim(sim, id) { return (sim.users || []).find(u => u.id === id); }
-
-async function findUserGlobal(db, idOrNombre) {
-  const inp = idOrNombre.trim().toLowerCase();
-  if (db.admin.id === inp || db.admin.nombre.toLowerCase() === inp)
-    return { user: db.admin, simId: null };
-  for (const [simId, sim] of Object.entries(db.simulaciones)) {
-    const u = (sim.users||[]).find(u =>
-      u.id.toLowerCase() === inp || u.nombre.toLowerCase() === inp
-    );
-    if (u) return { user: u, simId };
-  }
-  return null;
-}
-
-async function getRonda(sim, n) { return sim.rondas[String(n)] || null; }
-async function getSimConfig(sim) {
-  return {
-    params: sim.parametros, tiposProducto: sim.tiposProducto,
-    canales: sim.canales, segmentos: sim.segmentos,
-    afinidadMatrix: sim.afinidadMatrix, competenciaExterna: sim.competenciaExterna,
-  };
-}
-
-async function ensureRonda(sim, n) {
-  const key = String(n);
-  if (!sim.rondas[key]) {
-    sim.rondas[key] = {
-      estado: 'open', abiertaAt: new Date().toISOString(),
-      ejecutadaAt: null, decisiones: {}, resultados: {},
-      mercadoSegmentos: [], atractivoEquipos: {}, dashboard: {},
+async function ensureRonda(simulacionId, n, ownerId = null) {
+  let ronda = await getRonda(simulacionId, n, ownerId);
+  if (!ronda) {
+    const sim = await getSimulacion(simulacionId, ownerId);
+    if (!sim) throw new Error('Simulación no encontrada');
+    const equipos = await getEquipos(simulacionId, ownerId);
+    const rondaBase = {
+      estado: 'open',
+      abiertaAt: new Date().toISOString(),
+      ejecutadaAt: null,
+      decisiones: {},
+      resultados: {},
+      mercadoSegmentos: [],
+      atractivoEquipos: {},
+      dashboard: {}
     };
-    const equipos = await getEquipos(sim);
-    for (const eq of equipos) {
-      const prev = sim.rondas[String(n-1)];
-      if (prev?.decisiones?.[eq.id]) {
-        const d = { ...prev.decisiones[eq.id] };
-        const r = prev.resultados?.[eq.id];
-        d.submitted = false; d.submittedAt = null;
-        d.contratarVendedores = 0; d.despedirVendedores = 0;
-        d.tipoPrestamo = 'Ninguno'; d.montoPrestamo = 0; d.amortizacion = 0;
-        d.innovacion = false; d.tipoInnovacion = ''; d.montoInnovacion = 0;
-        d.tipoInvestigacion = 'No';
-        if (r) {
-          d.cajaInicial               = Math.max(0, r.cajaFinal);
-          d.cxcInicial                = Math.max(0, r.cxcFinal);
-          d.deudaInicial              = Math.max(0, r.deudaFinal);
-          d.inventarioInicial         = Math.max(0, r.inventarioFinal);
-          d.vendedoresIniciales       = Math.max(1, r.vendedoresFinales);
-          d.activosFijosIniciales     = Math.max(0, r.activosFijosNetos || r.afNetos || 78000);
-          d.resultadoAcumuladoAnterior = r.resultadoAcumulado;
+    if (n > 1) {
+      const prevRonda = await getRonda(simulacionId, n-1, ownerId);
+      if (prevRonda) {
+        for (const eq of equipos) {
+          const decPrev = prevRonda.decisiones[eq.id];
+          if (decPrev) {
+            const nuevaDec = { ...decPrev };
+            nuevaDec.submitted = false; nuevaDec.submittedAt = null;
+            nuevaDec.contratarVendedores = 0; nuevaDec.despedirVendedores = 0;
+            nuevaDec.tipoPrestamo = 'Ninguno'; nuevaDec.montoPrestamo = 0; nuevaDec.amortizacion = 0;
+            nuevaDec.innovacion = false; nuevaDec.tipoInnovacion = ''; nuevaDec.montoInnovacion = 0;
+            nuevaDec.tipoInvestigacion = 'No';
+            const resPrev = prevRonda.resultados[eq.id];
+            if (resPrev) {
+              nuevaDec.cajaInicial = Math.max(0, resPrev.cajaFinal);
+              nuevaDec.cxcInicial = Math.max(0, resPrev.cxcFinal);
+              nuevaDec.deudaInicial = Math.max(0, resPrev.deudaFinal);
+              nuevaDec.inventarioInicial = Math.max(0, resPrev.inventarioFinal);
+              nuevaDec.vendedoresIniciales = Math.max(1, resPrev.vendedoresFinales);
+              nuevaDec.activosFijosIniciales = Math.max(0, resPrev.activosFijosNetos || 78000);
+              nuevaDec.resultadoAcumuladoAnterior = resPrev.resultadoAcumulado;
+            }
+            rondaBase.decisiones[eq.id] = nuevaDec;
+          } else {
+            rondaBase.decisiones[eq.id] = defaultDecision(eq.id, eq.nombre, sim.parametros);
+          }
         }
-        sim.rondas[key].decisiones[eq.id] = d;
       } else {
-        sim.rondas[key].decisiones[eq.id] = defaultDecision(eq.id, eq.nombre, sim.parametros);
+        for (const eq of equipos) {
+          rondaBase.decisiones[eq.id] = defaultDecision(eq.id, eq.nombre, sim.parametros);
+        }
+      }
+    } else {
+      for (const eq of equipos) {
+        rondaBase.decisiones[eq.id] = defaultDecision(eq.id, eq.nombre, sim.parametros);
       }
     }
+    await updateRonda(simulacionId, n, rondaBase, ownerId);
+    ronda = rondaBase;
   }
-  return sim.rondas[key];
+  return ronda;
 }
 
-async function addEquipo(sim, equipo) {
-  sim.users.push(equipo);
-  const ronda = await ensureRonda(sim, sim.config.currentRound);
-  if (!ronda.decisiones[equipo.id]) {
-    ronda.decisiones[equipo.id] = defaultDecision(equipo.id, equipo.nombre, sim.parametros);
-  }
+// ============================================================
+//  CONFIGURACIÓN (parámetros, segmentos, etc.)
+// ============================================================
+async function getSimConfig(simulacionId, ownerId = null) {
+  const sim = await getSimulacion(simulacionId, ownerId);
+  if (!sim) return null;
+  return {
+    params: sim.parametros,
+    tiposProducto: sim.tipos_producto,
+    canales: sim.canales,
+    segmentos: sim.segmentos,
+    afinidadMatrix: sim.afinidad_matrix,
+    competenciaExterna: sim.competencia_externa
+  };
+}
+
+async function updateSimConfig(simulacionId, config, ownerId = null) {
+  const updates = {};
+  if (config.parametros !== undefined) updates.parametros = config.parametros;
+  if (config.tiposProducto !== undefined) updates.tipos_producto = config.tiposProducto;
+  if (config.canales !== undefined) updates.canales = config.canales;
+  if (config.segmentos !== undefined) updates.segmentos = config.segmentos;
+  if (config.afinidadMatrix !== undefined) updates.afinidad_matrix = config.afinidadMatrix;
+  if (config.competenciaExterna !== undefined) updates.competencia_externa = config.competenciaExterna;
+  await updateSimulacion(simulacionId, updates, ownerId);
+}
+
+// Generadores
+function genSimId() {
+  return 'sim_' + Date.now().toString(36);
+}
+function genCodigo() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return 'MKT-' + Array.from({length:4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
 module.exports = {
-  load: loadDB,
-  save: saveDB,
-  getSim, listSims, createSim, genSimId, genCodigo,
-  getEquipos, findUserInSim, findUserGlobal,
-  getRonda, ensureRonda, addEquipo, defaultDecision, getSimConfig,
+  // Usuarios
+  findUserById,
+  findUserByEmailOrId,
+  createUser,
+  listUsers,
+  deleteUser,
+  // Simulaciones
+  createSimulacion,
+  getSimulacion,
+  listSimulaciones,
+  updateSimulacion,
+  deleteSimulacion,
+  // Equipos
+  getEquipos,
+  addEquipo,
+  findUserInSimulacion,
+  // Rondas
+  getRonda,
+  updateRonda,
+  ensureRonda,
+  defaultDecision,
+  // Configuración
+  getSimConfig,
+  updateSimConfig,
+  // Utilidades
+  genSimId,
+  genCodigo
 };
