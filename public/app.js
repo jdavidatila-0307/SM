@@ -3015,7 +3015,7 @@ function buildManual() {
   if (container) {
     container.innerHTML = manualHTML;
     // Inicializar pestañas y acordeón
-    initManualTabs();
+    initManual();         // ← CORREGIDO
     initManualAccordion();
   }
 }
