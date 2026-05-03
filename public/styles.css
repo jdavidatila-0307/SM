@@ -1472,3 +1472,12 @@ td.warn {
     height: 58px;
   }
 }
+/* Reemplazo del emoji por imagen */
+.login-logo-jabon {
+  width: auto;
+  height: 80px;    /* o el tamaño que desees, mayor o menor */
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
