@@ -1,6 +1,10 @@
 /**
  * SIMULADOR DE MARKETING v3.0 — Multi-Simulación
  * Con persistencia PostgreSQL y soporte para múltiples profesores.
+ *
+ * CORRECCIONES APLICADAS:
+ *   Bug #1 — require('./src/...') → require('./...') + constants al inicio
+ *   Bug #2 — Login con logging estructurado y manejo diferenciado de errores
  */
 const http = require('http');
 const fs   = require('fs');
@@ -15,8 +19,11 @@ const { hashPassword, verifyPassword } = require('./auth');
 const storage  = require('./storage');
 const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion } = require('./engine');
 const { generarReportes } = require('./reports');
-// ── Constantes cargadas al inicio (evita require() inline) ────
-const { PARAMS, TIPOS_PRODUCTO, CANALES, SEGMENTOS, AFINIDAD_MATRIX, COMPETENCIA_EXTERNA } = require('./constants');
+// Constantes cargadas al inicio (evita require() inline en rutas)
+const {
+  PARAMS, TIPOS_PRODUCTO, CANALES, SEGMENTOS,
+  AFINIDAD_MATRIX, COMPETENCIA_EXTERNA
+} = require('./constants');
 
 const PORT = process.env.PORT || 3000;
 console.log('[server] DATABASE_URL definida?', process.env.DATABASE_URL ? 'Sí' : 'No');
@@ -47,7 +54,7 @@ function readBody(req) {
 
 function send(res, status, data) {
   if (res.headersSent) {
-    console.error(`⚠️ Intento de enviar respuesta ${status} después de que ya se enviaron los headers. Petición ignorada. URL: ${res.req?.url}`);
+    console.error(`⚠️ Intento de enviar respuesta ${status} después de que ya se enviaron los headers. URL: ${res.req?.url}`);
     return;
   }
   res.writeHead(status, { 'Content-Type':'application/json' });
@@ -62,17 +69,14 @@ function getSession(req) {
   return token ? sessions.get(token) : null;
 }
 
-// ── Función auxiliar para obtener la simulación actual (con verificación de permisos) ──
+// ── Función auxiliar para obtener la simulación actual ────────
 async function getCurrentSimulation(session) {
   if (!session || !session.simulacionId) return null;
   const user = await storage.findUserById(session.userId);
   if (!user) return null;
   const ownerId = (user.rol === 'superadmin') ? null : session.userId;
   const sim = await storage.getSimulacion(session.simulacionId, ownerId);
-  if (!sim) {
-    session.simulacionId = null;
-    return null;
-  }
+  if (!sim) { session.simulacionId = null; return null; }
   return sim;
 }
 
@@ -83,9 +87,10 @@ async function route(req, res, body) {
   const session = getSession(req);
   const s = session || null;
 
-  const isAdmin = () => s?.rol === 'superadmin' || s?.rol === 'profesor';
+  const isAdmin      = () => s?.rol === 'superadmin' || s?.rol === 'profesor';
   const isSuperAdmin = () => s?.rol === 'superadmin';
-  const isEquipo = () => s?.rol === 'equipo';
+  const isEquipo     = () => s?.rol === 'equipo';
+
   const needAdmin = () => {
     if (!s) { send(res, 401, { error: 'No autenticado' }); return true; }
     if (!isAdmin()) { send(res, 403, { error: 'Acceso denegado' }); return true; }
@@ -108,18 +113,44 @@ async function route(req, res, body) {
 
   // ═══ AUTH ════════════════════════════════════════════════════
   if (url === '/auth/login' && method === 'POST') {
-    console.log('[LOGIN] iniciando');
+    // ── BUG #2 CORREGIDO: logging estructurado + manejo diferenciado ──
     const { id, password } = body;
     if (!id || !password) return send(res, 400, { error: 'Credenciales requeridas' });
-    const user = await storage.findUserByEmailOrId(id.trim());
-    if (!user) return send(res, 401, { error: 'Usuario o contraseña incorrectos' });
+
+    const identifier = id.trim();
+    console.log(`[LOGIN] intento | identifier: "${identifier}"`);
+
+    const user = await storage.findUserByEmailOrId(identifier);
+    if (!user) {
+      console.log(`[LOGIN] no encontrado | identifier: "${identifier}"`);
+      return send(res, 401, { error: 'Usuario o contraseña incorrectos' });
+    }
+
+    console.log(`[LOGIN] usuario encontrado | id: ${user.id} | rol: ${user.rol}`);
+
+    // Hash ausente → error de datos, no de credenciales
+    if (!user.password_hash) {
+      console.error(`[LOGIN] ERROR: password_hash es NULL para usuario "${user.id}" (rol: ${user.rol}). Recrear cuenta.`);
+      return send(res, 500, { error: 'Error de configuración de cuenta. Contacta al administrador.' });
+    }
+
     let ok = false;
-    try { ok = verifyPassword(password, user.password_hash); } catch(e) { console.error(e); }
-    if (!ok) return send(res, 401, { error: 'Usuario o contraseña incorrectos' });
+    try {
+      ok = verifyPassword(password, user.password_hash);
+    } catch(e) {
+      console.error(`[LOGIN] ERROR en verifyPassword | usuario: ${user.id} | ${e.message}`);
+      return send(res, 500, { error: 'Error interno en verificación. Contacta al administrador.' });
+    }
+
+    if (!ok) {
+      console.log(`[LOGIN] contraseña incorrecta | usuario: ${user.id}`);
+      return send(res, 401, { error: 'Usuario o contraseña incorrectos' });
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, { userId: user.id, nombre: user.nombre, rol: user.rol, simulacionId: null, createdAt: Date.now() });
     res.setHeader('Set-Cookie', `sid=${token}; HttpOnly; Path=/; SameSite=Lax`);
-    console.log('[LOGIN] autenticación exitosa');
+    console.log(`[LOGIN] éxito | id: ${user.id} | rol: ${user.rol}`);
     return send(res, 200, { ok: true, rol: user.rol, id: user.id, nombre: user.nombre });
   }
 
@@ -236,22 +267,17 @@ async function route(req, res, body) {
       if (!baseSim && user.rol === 'superadmin') baseSim = await storage.getSimulacion(copyFromSimId);
     }
     const simData = {
-      id: simId,
-      nombre,
-      descripcion: descripcion || '',
-      codigoAcceso,
-      estado: 'activa',
-      creadaAt: new Date().toISOString(),
+      id: simId, nombre, descripcion: descripcion || '', codigoAcceso,
+      estado: 'activa', creadaAt: new Date().toISOString(),
       config: { currentRound: 1, totalRounds: totalRounds || 20, roundState: 'pending' },
-      // ── BUG #1 CORREGIDO: require('./src/constants') → constante importada al inicio ──
-      parametros:        baseSim?.parametros        || PARAMS,
-      tiposProducto:     baseSim?.tipos_producto    || TIPOS_PRODUCTO,
-      canales:           baseSim?.canales           || CANALES,
-      segmentos:         baseSim?.segmentos         || SEGMENTOS,
-      afinidadMatrix:    baseSim?.afinidad_matrix   || AFINIDAD_MATRIX,
-      competenciaExterna:baseSim?.competencia_externa|| COMPETENCIA_EXTERNA,
-      rondas: {},
-      users: [],
+      // ── BUG #1 CORREGIDO: constantes importadas al inicio, sin require() inline ──
+      parametros:         baseSim?.parametros         || PARAMS,
+      tiposProducto:      baseSim?.tipos_producto     || TIPOS_PRODUCTO,
+      canales:            baseSim?.canales            || CANALES,
+      segmentos:          baseSim?.segmentos          || SEGMENTOS,
+      afinidadMatrix:     baseSim?.afinidad_matrix    || AFINIDAD_MATRIX,
+      competenciaExterna: baseSim?.competencia_externa || COMPETENCIA_EXTERNA,
+      rondas: {}, users: [],
     };
     await storage.createSimulacion(ownerId, simData);
     return send(res, 200, { ok: true, simId, codigoAcceso });
@@ -332,7 +358,8 @@ async function route(req, res, body) {
     const id = `prof_${Date.now().toString(36)}`;
     const hash = hashPassword(password);
     await storage.createUser(id, nombre, email, hash, password, 'profesor');
-    return send(res, 200, { id, nombre, email });
+    // Devolver password_plain para que el superadmin pueda comunicarlo
+    return send(res, 200, { id, nombre, email, password_plain: password });
   }
 
   if (url.match(/^\/admin\/usuarios\/[^/]+$/) && method === 'DELETE') {
@@ -463,12 +490,9 @@ async function route(req, res, body) {
     if (!decisiones.length) return send(res, 400, { error: 'Sin decisiones' });
     try {
       const simCfg = {
-        params: sim.parametros,
-        tiposProducto: sim.tipos_producto,
-        canales: sim.canales,
-        segmentos: sim.segmentos,
-        afinidadMatrix: sim.afinidad_matrix,
-        competenciaExterna: sim.competencia_externa
+        params: sim.parametros, tiposProducto: sim.tipos_producto,
+        canales: sim.canales, segmentos: sim.segmentos,
+        afinidadMatrix: sim.afinidad_matrix, competenciaExterna: sim.competencia_externa
       };
       const preResult = calcularPreSimulacion(decisiones, simCfg);
       const preSimulacion = {};
@@ -556,12 +580,9 @@ async function route(req, res, body) {
     if (!decisiones.length) return send(res, 400, { error: 'Sin decisiones' });
     try {
       const simCfg = {
-        params: sim.parametros,
-        tiposProducto: sim.tipos_producto,
-        canales: sim.canales,
-        segmentos: sim.segmentos,
-        afinidadMatrix: sim.afinidad_matrix,
-        competenciaExterna: sim.competencia_externa
+        params: sim.parametros, tiposProducto: sim.tipos_producto,
+        canales: sim.canales, segmentos: sim.segmentos,
+        afinidadMatrix: sim.afinidad_matrix, competenciaExterna: sim.competencia_externa
       };
       const result = ejecutarSimulador(decisiones, simCfg);
       ronda.estado = 'simulated';
@@ -578,13 +599,9 @@ async function route(req, res, body) {
       sim.config.roundState = 'simulated';
       await storage.updateSimulacion(sim.id, { config: sim.config });
       await storage.updateRonda(sim.id, n, {
-        estado: ronda.estado,
-        ejecutadaAt: ronda.ejecutadaAt,
-        mercadoSegmentos: ronda.mercadoSegmentos,
-        atractivoEquipos: ronda.atractivoEquipos,
-        dashboard: ronda.dashboard,
-        resultados: ronda.resultados,
-        reportes: ronda.reportes
+        estado: ronda.estado, ejecutadaAt: ronda.ejecutadaAt,
+        mercadoSegmentos: ronda.mercadoSegmentos, atractivoEquipos: ronda.atractivoEquipos,
+        dashboard: ronda.dashboard, resultados: ronda.resultados, reportes: ronda.reportes
       });
       return send(res, 200, { ok: true, ronda: n, equiposSimulados: decisiones.length });
     } catch(e) { return send(res, 500, { error: e.message }); }
@@ -636,12 +653,9 @@ async function route(req, res, body) {
     if (needAdmin()) return;
     if (!sim) return send(res, 400, { error: 'Sin simulación' });
     return send(res, 200, {
-      parametros: sim.parametros,
-      tiposProducto: sim.tipos_producto,
-      canales: sim.canales,
-      segmentos: sim.segmentos,
-      afinidadMatrix: sim.afinidad_matrix,
-      competenciaExterna: sim.competencia_externa,
+      parametros: sim.parametros, tiposProducto: sim.tipos_producto,
+      canales: sim.canales, segmentos: sim.segmentos,
+      afinidadMatrix: sim.afinidad_matrix, competenciaExterna: sim.competencia_externa,
       mercadoSegmentos: calcularMercadoSegmentos(sim.parametros, sim.segmentos),
     });
   }
@@ -696,12 +710,9 @@ async function route(req, res, body) {
     const { segmentos } = body;
     if (!Array.isArray(segmentos)) return send(res, 400, { error: 'Array requerido' });
     const newSegmentos = segmentos.map(s => ({
-      nombre: String(s.nombre||'').trim(),
-      demandaBase: +s.demandaBase,
-      pctContrabando: +s.pctContrabando,
-      indiceExterno: +s.indiceExterno,
-      tendencia: String(s.tendencia||''),
-      descripcion: String(s.descripcion||''),
+      nombre: String(s.nombre||'').trim(), demandaBase: +s.demandaBase,
+      pctContrabando: +s.pctContrabando, indiceExterno: +s.indiceExterno,
+      tendencia: String(s.tendencia||''), descripcion: String(s.descripcion||''),
     }));
     await storage.updateSimulacion(sim.id, { segmentos: newSegmentos });
     return send(res, 200, { ok: true });
@@ -736,12 +747,8 @@ async function route(req, res, body) {
     const { competencia } = body;
     if (!Array.isArray(competencia)) return send(res, 400, { error: 'Array requerido' });
     const newCompetencia = competencia.map(c => ({
-      segmento: String(c.segmento||''),
-      nombre: String(c.nombre||''),
-      precio: +c.precio,
-      calidad: +c.calidad,
-      marketing: +c.marketing,
-      participacionRef: +c.participacionRef,
+      segmento: String(c.segmento||''), nombre: String(c.nombre||''),
+      precio: +c.precio, calidad: +c.calidad, marketing: +c.marketing, participacionRef: +c.participacionRef,
     }));
     await storage.updateSimulacion(sim.id, { competencia_externa: newCompetencia });
     return send(res, 200, { ok: true });
@@ -754,9 +761,7 @@ async function route(req, res, body) {
     const equipoId = s.userId;
     const n = sim.config.currentRound;
     let ronda = await storage.getRonda(sim.id, n);
-    if (!ronda) {
-      ronda = await storage.ensureRonda(sim.id, n);
-    }
+    if (!ronda) ronda = await storage.ensureRonda(sim.id, n);
     if (!ronda.decisiones[equipoId]) {
       const equipos = await storage.getEquipos(sim.id);
       const eq = equipos.find(e => e.id === equipoId);
@@ -764,17 +769,12 @@ async function route(req, res, body) {
       await storage.updateRonda(sim.id, n, { decisiones: ronda.decisiones });
     }
     const cfg = {
-      params: sim.parametros,
-      tiposProducto: sim.tipos_producto,
-      canales: sim.canales,
-      segmentos: sim.segmentos,
-      afinidadMatrix: sim.afinidad_matrix,
-      competenciaExterna: sim.competencia_externa
+      params: sim.parametros, tiposProducto: sim.tipos_producto,
+      canales: sim.canales, segmentos: sim.segmentos,
+      afinidadMatrix: sim.afinidad_matrix, competenciaExterna: sim.competencia_externa
     };
     return send(res, 200, {
-      ronda: n,
-      roundState: sim.config.roundState,
-      decision: ronda.decisiones[equipoId],
+      ronda: n, roundState: sim.config.roundState, decision: ronda.decisiones[equipoId],
       referencia: {
         segmentos: cfg.segmentos,
         tiposProducto: Object.keys(cfg.tiposProducto).map(k => ({ nombre:k, costoBase: cfg.tiposProducto[k].costoBase })),
@@ -871,7 +871,6 @@ async function route(req, res, body) {
 
 // ── Servidor HTTP ─────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  // Sesión
   const raw = req.headers.cookie || '';
   const sid = raw.split(';').map(c=>c.trim()).find(c=>c.startsWith('sid='));
   const token = sid ? sid.split('=')[1] : null;
