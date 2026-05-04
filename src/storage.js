@@ -137,13 +137,23 @@ async function updateSimulacion(id, updates, ownerId = null) {
     'parametros', 'tipos_producto', 'canales', 'segmentos',
     'afinidad_matrix', 'competencia_externa', 'rondas', 'users'
   ];
+  // Campos que se almacenan como JSONB en PostgreSQL
+  const jsonbFields = [
+    'config', 'parametros', 'tipos_producto', 'canales', 'segmentos',
+    'afinidad_matrix', 'competencia_externa', 'rondas', 'users'
+  ];
   const setClauses = [];
   const values = [];
   let idx = 1;
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
       setClauses.push(`${field} = $${idx}`);
-      values.push(updates[field]);
+      // Para campos JSONB, convertimos a string JSON; para los demás, pasamos el valor tal cual
+      if (jsonbFields.includes(field)) {
+        values.push(JSON.stringify(updates[field]));
+      } else {
+        values.push(updates[field]);
+      }
       idx++;
     }
   }
