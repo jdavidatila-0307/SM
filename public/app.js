@@ -111,17 +111,24 @@ function initLogin() {
 async function doLogin() {
   const id   = document.getElementById('loginId').value.trim();
   const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
+  const errEl  = document.getElementById('loginError');
+  const hintEl = document.getElementById('loginHint');
   errEl.textContent = '';
+  if (hintEl) hintEl.style.display = 'none';
   const btn = document.getElementById('btnLogin');
   btn.textContent = 'Ingresando...'; btn.disabled = true;
   try {
     const data = await api('POST','/auth/login',{id,password:pass});
     state.me = data;
-   if (data.rol === 'admin' || data.rol === 'superadmin' || data.rol === 'profesor') await initAdmin();
+    if (data.rol === 'admin' || data.rol === 'superadmin' || data.rol === 'profesor') await initAdmin();
     else await initEquipo();
   } catch(e) {
     errEl.textContent = e.message;
+    // BUG #5 CORREGIDO: hint contextual si el identificador no parece email
+    if (hintEl && !id.includes('@') && e.message.toLowerCase().includes('contraseña')) {
+      hintEl.textContent = '💡 ¿Eres profesor? Intenta ingresar con tu correo electrónico.';
+      hintEl.style.display = 'block';
+    }
   } finally {
     btn.textContent = 'Ingresar →'; btn.disabled = false;
   }
@@ -3078,16 +3085,29 @@ function renderProfesores(container, profesores) {
     return;
   }
 
-  const rows = profesores.map(prof => `
-    <table>
+  // BUG #4 CORREGIDO: muestra password_plain con toggle + botón copiar credenciales
+  const rows = profesores.map(prof => {
+    const pwId = `pw_${prof.id}`;
+    const pw = prof.password_plain || '(no disponible)';
+    return `
+    <tr>
       <td><strong>${escapeHtml(prof.nombre)}</strong><br><span style="font-size:.7rem;color:var(--text3)">${prof.id}</span></td>
       <td>${escapeHtml(prof.email || '—')}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="${pwId}" type="password" value="${escapeHtml(pw)}" readonly
+            style="border:none;background:var(--bg2);padding:3px 8px;border-radius:6px;font-family:monospace;font-size:.8rem;width:110px;color:var(--text1)">
+          <button class="btn btn-ghost btn-sm" onclick="toggleInputPw('${pwId}',this)" title="Mostrar/ocultar">👁</button>
+          <button class="btn btn-ghost btn-sm" title="Copiar credenciales"
+            onclick="navigator.clipboard.writeText('Email: ${escapeHtml(prof.email)} | Contraseña: ${escapeHtml(pw)}').then(()=>toast('Credenciales copiadas','success'))">📋</button>
+        </div>
+      </td>
       <td style="font-size:.78rem">${fmt.dt(prof.creado_at)}</td>
       <td style="text-align:center">
         <button class="btn btn-danger btn-sm" onclick="eliminarProfesor('${prof.id}','${escapeHtml(prof.nombre)}')">✕ Eliminar</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
 
   container.innerHTML = `
     <div class="table-wrap" style="margin-bottom:24px">
@@ -3095,7 +3115,8 @@ function renderProfesores(container, profesores) {
         <thead>
           <tr>
             <th>Nombre / ID</th>
-            <th>Email</th>
+            <th>Email (login)</th>
+            <th>Contraseña</th>
             <th>Registrado</th>
             <th style="width:100px">Acciones</th>
           </tr>
@@ -3110,16 +3131,14 @@ function renderProfesores(container, profesores) {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nombre = document.getElementById('profNombre').value.trim();
-      const email = document.getElementById('profEmail').value.trim();
+      const nombre   = document.getElementById('profNombre').value.trim();
+      const email    = document.getElementById('profEmail').value.trim();
       const password = document.getElementById('profPassword').value;
-      if (!nombre || !email || !password) {
-        toast('Complete todos los campos', 'error');
-        return;
-      }
+      if (!nombre || !email || !password) { toast('Complete todos los campos', 'error'); return; }
       try {
-        await api('POST', '/admin/usuarios', { nombre, email, password });
-        toast(`Profesor "${nombre}" creado`, 'success');
+        const res = await api('POST', '/admin/usuarios', { nombre, email, password });
+        // BUG #4 CORREGIDO: toast con credenciales completas para comunicar al profesor
+        toast(`✓ Profesor "${nombre}" creado · Email: ${email} · Contraseña: ${res.password_plain || password}`, 'success');
         loadAdminProfesores();
       } catch (err) {
         toast(err.message, 'error');
