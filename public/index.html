@@ -27,8 +27,16 @@
       <p class="login-sub2">20 Trimestres · Hasta 30 Equipos</p>
 
       <div class="form-group">
-        <label class="form-label">Nombre de equipo o ID de acceso</label>
-        <input class="form-input" id="loginId" type="text" placeholder="Ej: Empresa Alfa  ó  admin" autocomplete="username">
+        <!-- BUG #5 CORREGIDO: label actualizado para los 3 roles -->
+        <label class="form-label">Nombre de equipo · Correo del profesor · ID de admin</label>
+        <input class="form-input" id="loginId" type="text"
+          placeholder="Ej: Empresa Alfa  /  prof@email.com  /  admin"
+          autocomplete="username">
+        <p class="form-hint" style="margin-top:5px;font-size:.72rem;color:var(--text3)">
+          📌 <strong>Equipos:</strong> nombre de empresa &nbsp;|&nbsp;
+          <strong>Profesores:</strong> correo electrónico &nbsp;|&nbsp;
+          <strong>Admin:</strong> ID de acceso
+        </p>
       </div>
       <div class="form-group" style="margin-top:14px">
         <label class="form-label">Contraseña</label>
@@ -36,6 +44,8 @@
       </div>
       <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:20px">Ingresar →</button>
       <p class="login-error" id="loginError"></p>
+      <!-- BUG #5: hint contextual inyectado por doLogin() si falla sin '@' -->
+      <p id="loginHint" style="display:none;font-size:.75rem;color:var(--accent2);margin-top:6px;text-align:center"></p>
       <div class="login-divider"><span>¿Primera vez?</span></div>
       <button class="btn btn-ghost btn-full" id="btnIrRegistro">Registrar mi equipo</button>
       <!-- Botón para abrir el manual desde el login -->
