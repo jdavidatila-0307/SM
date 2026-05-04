@@ -1547,13 +1547,30 @@ async function initEquipo() {
     });
   });
 
-  // Load referencia from decisiones endpoint (v2.0 returns it inline)
-  const decData = await api('GET','/api/decisiones');
-  state.ref = decData.referencia || null;
-  state.decisiones = decData.decision;
-
-  // Load hoja (default view)
-  await loadHojaDecision();
+  // ── BUG CORREGIDO: /api/decisiones lanzaba 400 si la sesión perdió
+  //    simulacionId (ej: relogin después de expiración de cookie).
+  //    Ahora muestra mensaje claro en lugar de romper toda la inicialización.
+  try {
+    const decData = await api('GET', '/api/decisiones');
+    state.ref = decData.referencia || null;
+    state.decisiones = decData.decision;
+    await loadHojaDecision();
+  } catch(e) {
+    const wrap = document.getElementById('decisionFormWrap');
+    if (wrap) {
+      wrap.innerHTML = `
+        <div class="empty-state" style="padding:40px 20px;text-align:center">
+          <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+          <h3 style="margin-bottom:8px">Sesión sin simulación activa</h3>
+          <p style="color:var(--text3);font-size:.88rem;margin-bottom:20px">
+            Tu sesión expiró o fue iniciada sin un código de simulación.<br>
+            Cierra sesión y vuelve a ingresar con tu nombre de equipo y contraseña,<br>
+            o solicita al profesor que reactive tu acceso.
+          </p>
+          <button class="btn btn-primary" onclick="doLogout()">Cerrar sesión →</button>
+        </div>`;
+    }
+  }
 }
 
 // ── Decision Form ──────────────────────────────────────────
@@ -3074,9 +3091,8 @@ async function loadAdminProfesores() {
 }
 
 function renderProfesores(container, profesores) {
-  // ── BUG ADICIONAL CORREGIDO: return prematuro impedía que addEventListener
-  //    se enlazara cuando la lista estaba vacía → el form recargaba la página.
-  //    Solución: ambas ramas renderizan el HTML, el binding va SIEMPRE al final.
+  // El botón "Crear profesor" usa onclick="crearProfesor()" (función global window.crearProfesor).
+  // No se usa addEventListener para evitar problemas de timing al reconstruir el DOM.
 
   if (!profesores.length) {
     container.innerHTML = `
@@ -3086,13 +3102,14 @@ function renderProfesores(container, profesores) {
       </div>
       ${formAgregarProfesor()}
     `;
-    // ← NO hay return aquí; el binding del formulario se ejecuta debajo
-  } else {
-    // BUG #4 CORREGIDO: muestra password_plain con toggle + botón copiar credenciales
-    const rows = profesores.map(prof => {
-      const pwId = `pw_${prof.id}`;
-      const pw   = prof.password_plain || '(no disponible)';
-      return `
+    return;
+  }
+
+  // BUG #4 CORREGIDO: muestra password_plain con toggle + botón copiar credenciales
+  const rows = profesores.map(prof => {
+    const pwId = `pw_${prof.id}`;
+    const pw   = prof.password_plain || '(ver con superadmin)';
+    return `
       <tr>
         <td>
           <strong>${escapeHtml(prof.nombre)}</strong><br>
@@ -3116,78 +3133,80 @@ function renderProfesores(container, profesores) {
             onclick="eliminarProfesor('${prof.id}','${escapeHtml(prof.nombre)}')">✕ Eliminar</button>
         </td>
       </tr>`;
-    }).join('');
+  }).join('');
 
-    container.innerHTML = `
-      <div class="table-wrap" style="margin-bottom:24px">
-        <table style="width:100%">
-          <thead>
-            <tr>
-              <th>Nombre / ID</th>
-              <th>Email (login)</th>
-              <th>Contraseña</th>
-              <th>Registrado</th>
-              <th style="width:100px">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      ${formAgregarProfesor()}
-    `;
-  }
-
-  // ── Binding SIEMPRE ejecutado: funciona tanto con lista vacía como con datos ──
-  const form = document.getElementById('formAgregarProfesor');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault(); // ← evita recarga de página
-      const nombre   = document.getElementById('profNombre').value.trim();
-      const email    = document.getElementById('profEmail').value.trim();
-      const password = document.getElementById('profPassword').value;
-      if (!nombre || !email || !password) {
-        toast('Complete todos los campos', 'error');
-        return;
-      }
-      try {
-        const resultado = await api('POST', '/admin/usuarios', { nombre, email, password });
-        // Toast con credenciales completas para comunicar al profesor
-        toast(
-          `✓ Profesor "${nombre}" creado · Email: ${email} · Contraseña: ${resultado.password_plain || password}`,
-          'success'
-        );
-        loadAdminProfesores();
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-    });
-  }
+  container.innerHTML = `
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table style="width:100%">
+        <thead>
+          <tr>
+            <th>Nombre / ID</th>
+            <th>Email (usar para login)</th>
+            <th>Contraseña</th>
+            <th>Registrado</th>
+            <th style="width:100px">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${formAgregarProfesor()}
+  `;
 }
+
+// ── FIX: función global para crear profesor (evita depender de addEventListener) ──
+window.crearProfesor = async () => {
+  const nombre   = (document.getElementById('profNombre')?.value || '').trim();
+  const email    = (document.getElementById('profEmail')?.value || '').trim();
+  const password = document.getElementById('profPassword')?.value || '';
+  const btn      = document.getElementById('btnCrearProfesor');
+
+  if (!nombre || !email || !password) {
+    toast('Complete todos los campos', 'error');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+  try {
+    const resultado = await api('POST', '/admin/usuarios', { nombre, email, password });
+    const pw = resultado.password_plain || password;
+    toast(`✓ Profesor "${nombre}" creado  |  Email: ${email}  |  Contraseña: ${pw}`, 'success');
+    // Copiar automáticamente al portapapeles
+    navigator.clipboard?.writeText(`Email: ${email} | Contraseña: ${pw}`).catch(() => {});
+    loadAdminProfesores();
+  } catch (err) {
+    toast(`Error al crear profesor: ${err.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Crear profesor'; }
+  }
+};
 
 function formAgregarProfesor() {
   return `
     <div class="param-card" style="margin-top:16px">
       <div class="param-card-title">➕ Agregar nuevo profesor</div>
-      <form id="formAgregarProfesor" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end">
         <div style="flex:2; min-width:150px">
           <label class="form-label">Nombre completo</label>
-          <input type="text" id="profNombre" class="form-input" placeholder="Ej: Prof. Juan Pérez" required>
+          <input type="text" id="profNombre" class="form-input" placeholder="Ej: Prof. Juan Pérez">
         </div>
         <div style="flex:2; min-width:150px">
           <label class="form-label">Correo electrónico</label>
-          <input type="email" id="profEmail" class="form-input" placeholder="juan@ejemplo.com" required>
+          <input type="email" id="profEmail" class="form-input" placeholder="juan@ejemplo.com">
         </div>
         <div style="flex:1; min-width:120px">
           <label class="form-label">Contraseña</label>
           <div class="pw-input-wrap">
-            <input type="password" id="profPassword" class="form-input" placeholder="******" required>
+            <input type="password" id="profPassword" class="form-input" placeholder="******">
             <button type="button" class="btn-eye-input" onclick="toggleInputPw('profPassword',this)">👁</button>
           </div>
         </div>
         <div>
-          <button type="submit" class="btn btn-primary">✓ Crear profesor</button>
+          <button type="button" id="btnCrearProfesor" class="btn btn-primary"
+            onclick="crearProfesor()">✓ Crear profesor</button>
         </div>
-      </form>
+      </div>
+      <p style="font-size:.72rem;color:var(--text3);margin-top:8px">
+        ℹ️ El profesor ingresará con su correo electrónico y la contraseña que definas aquí.
+      </p>
     </div>
   `;
 }
@@ -3228,10 +3247,16 @@ async function doLogout() {
 async function init() {
   initLogin();
   try {
-    const me = await api('GET','/auth/me');
+    const me = await api('GET', '/auth/me');
     state.me = me;
-    if (me.rol === 'admin') await initAdmin();
-    else await initEquipo();
+    // ── BUG CRÍTICO CORREGIDO: 'admin' solo era el único rol aceptado.
+    //    'superadmin' y 'profesor' caían a initEquipo() causando 400 en
+    //    /api/decisiones → excepción → vuelta al login en cada recarga.
+    if (me.rol === 'admin' || me.rol === 'superadmin' || me.rol === 'profesor') {
+      await initAdmin();
+    } else {
+      await initEquipo();
+    }
   } catch {
     showScreen('screen-login');
   }
