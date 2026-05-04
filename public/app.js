@@ -3074,71 +3074,88 @@ async function loadAdminProfesores() {
 }
 
 function renderProfesores(container, profesores) {
+  // ── BUG ADICIONAL CORREGIDO: return prematuro impedía que addEventListener
+  //    se enlazara cuando la lista estaba vacía → el form recargaba la página.
+  //    Solución: ambas ramas renderizan el HTML, el binding va SIEMPRE al final.
+
   if (!profesores.length) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">👨‍🏫</div>
-        <p>No hay profesores registrados.</p>
+        <p>No hay profesores registrados. Crea el primero abajo.</p>
       </div>
       ${formAgregarProfesor()}
     `;
-    return;
+    // ← NO hay return aquí; el binding del formulario se ejecuta debajo
+  } else {
+    // BUG #4 CORREGIDO: muestra password_plain con toggle + botón copiar credenciales
+    const rows = profesores.map(prof => {
+      const pwId = `pw_${prof.id}`;
+      const pw   = prof.password_plain || '(no disponible)';
+      return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(prof.nombre)}</strong><br>
+          <span style="font-size:.7rem;color:var(--text3)">${prof.id}</span>
+        </td>
+        <td>${escapeHtml(prof.email || '—')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input id="${pwId}" type="password" value="${escapeHtml(pw)}" readonly
+              style="border:none;background:var(--bg2);padding:3px 8px;border-radius:6px;
+                     font-family:monospace;font-size:.8rem;width:110px;color:var(--text1)">
+            <button class="btn btn-ghost btn-sm"
+              onclick="toggleInputPw('${pwId}',this)" title="Mostrar/ocultar">👁</button>
+            <button class="btn btn-ghost btn-sm" title="Copiar credenciales"
+              onclick="navigator.clipboard.writeText('Email: ${escapeHtml(prof.email)} | Contraseña: ${escapeHtml(pw)}').then(()=>toast('Credenciales copiadas','success'))">📋</button>
+          </div>
+        </td>
+        <td style="font-size:.78rem">${fmt.dt(prof.creado_at)}</td>
+        <td style="text-align:center">
+          <button class="btn btn-danger btn-sm"
+            onclick="eliminarProfesor('${prof.id}','${escapeHtml(prof.nombre)}')">✕ Eliminar</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="table-wrap" style="margin-bottom:24px">
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Nombre / ID</th>
+              <th>Email (login)</th>
+              <th>Contraseña</th>
+              <th>Registrado</th>
+              <th style="width:100px">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${formAgregarProfesor()}
+    `;
   }
 
-  // BUG #4 CORREGIDO: muestra password_plain con toggle + botón copiar credenciales
-  const rows = profesores.map(prof => {
-    const pwId = `pw_${prof.id}`;
-    const pw = prof.password_plain || '(no disponible)';
-    return `
-    <tr>
-      <td><strong>${escapeHtml(prof.nombre)}</strong><br><span style="font-size:.7rem;color:var(--text3)">${prof.id}</span></td>
-      <td>${escapeHtml(prof.email || '—')}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input id="${pwId}" type="password" value="${escapeHtml(pw)}" readonly
-            style="border:none;background:var(--bg2);padding:3px 8px;border-radius:6px;font-family:monospace;font-size:.8rem;width:110px;color:var(--text1)">
-          <button class="btn btn-ghost btn-sm" onclick="toggleInputPw('${pwId}',this)" title="Mostrar/ocultar">👁</button>
-          <button class="btn btn-ghost btn-sm" title="Copiar credenciales"
-            onclick="navigator.clipboard.writeText('Email: ${escapeHtml(prof.email)} | Contraseña: ${escapeHtml(pw)}').then(()=>toast('Credenciales copiadas','success'))">📋</button>
-        </div>
-      </td>
-      <td style="font-size:.78rem">${fmt.dt(prof.creado_at)}</td>
-      <td style="text-align:center">
-        <button class="btn btn-danger btn-sm" onclick="eliminarProfesor('${prof.id}','${escapeHtml(prof.nombre)}')">✕ Eliminar</button>
-      </td>
-    </tr>
-  `}).join('');
-
-  container.innerHTML = `
-    <div class="table-wrap" style="margin-bottom:24px">
-      <table style="width:100%">
-        <thead>
-          <tr>
-            <th>Nombre / ID</th>
-            <th>Email (login)</th>
-            <th>Contraseña</th>
-            <th>Registrado</th>
-            <th style="width:100px">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    ${formAgregarProfesor()}
-  `;
-
+  // ── Binding SIEMPRE ejecutado: funciona tanto con lista vacía como con datos ──
   const form = document.getElementById('formAgregarProfesor');
   if (form) {
     form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+      e.preventDefault(); // ← evita recarga de página
       const nombre   = document.getElementById('profNombre').value.trim();
       const email    = document.getElementById('profEmail').value.trim();
       const password = document.getElementById('profPassword').value;
-      if (!nombre || !email || !password) { toast('Complete todos los campos', 'error'); return; }
+      if (!nombre || !email || !password) {
+        toast('Complete todos los campos', 'error');
+        return;
+      }
       try {
-        const res = await api('POST', '/admin/usuarios', { nombre, email, password });
-        // BUG #4 CORREGIDO: toast con credenciales completas para comunicar al profesor
-        toast(`✓ Profesor "${nombre}" creado · Email: ${email} · Contraseña: ${res.password_plain || password}`, 'success');
+        const resultado = await api('POST', '/admin/usuarios', { nombre, email, password });
+        // Toast con credenciales completas para comunicar al profesor
+        toast(
+          `✓ Profesor "${nombre}" creado · Email: ${email} · Contraseña: ${resultado.password_plain || password}`,
+          'success'
+        );
         loadAdminProfesores();
       } catch (err) {
         toast(err.message, 'error');
