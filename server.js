@@ -59,17 +59,23 @@ function getSession(req) {
   return token ? sessions.get(token) : null;
 }
 
-// ── Función auxiliar para obtener la simulación actual (con verificación de permisos) ──
+// ── Función auxiliar para obtener la simulación actual ────────
 async function getCurrentSimulation(session) {
   if (!session || !session.simulacionId) return null;
+
+  // Los EQUIPOS no están en la tabla 'usuarios' — están en simulaciones.users JSONB.
+  // Para equipos: obtener la simulación directamente por ID (ya tienen simulacionId en sesión).
+  if (session.rol === 'equipo') {
+    const sim = await storage.getSimulacion(session.simulacionId);
+    return sim || null;
+  }
+
+  // Para admin / superadmin / profesor: verificar usuario + permisos de ownership
   const user = await storage.findUserById(session.userId);
   if (!user) return null;
   const ownerId = (user.rol === 'superadmin') ? null : session.userId;
   const sim = await storage.getSimulacion(session.simulacionId, ownerId);
-  if (!sim) {
-    session.simulacionId = null;
-    return null;
-  }
+  if (!sim) { session.simulacionId = null; return null; }
   return sim;
 }
 
@@ -109,16 +115,40 @@ async function route(req, res, body) {
     if (!id || !password) return send(res, 400, { error: 'Credenciales requeridas' });
     const identifier = id.trim();
     console.log(`[LOGIN] intento | identifier: "${identifier}"`);
-    const user = await storage.findUserByEmailOrId(identifier);
+
+    // ── 1. Buscar en tabla 'usuarios' (superadmin, profesor) ──────
+    let user = await storage.findUserByEmailOrId(identifier);
+    let sessionSimulacionId = null;
+
+    // ── 2. Si no encontrado, buscar equipo por nombre en simulaciones ──
+    //    Necesario porque los equipos NO están en 'usuarios' y Render
+    //    reinicia el servidor (perdiendo sesiones en memoria).
     if (!user) {
-      console.log(`[LOGIN] 401 — usuario no encontrado: "${identifier}"`);
+      const found = await storage.findEquipoByNombre(identifier);
+      if (found) {
+        user = {
+          id:            found.equipo.id,
+          nombre:        found.equipo.nombre,
+          rol:           'equipo',
+          password_hash: found.equipo.password,
+        };
+        sessionSimulacionId = found.simulacionId;
+        console.log(`[LOGIN] equipo encontrado | id: ${user.id} | sim: ${sessionSimulacionId}`);
+      }
+    }
+
+    if (!user) {
+      console.log(`[LOGIN] 401 — no encontrado: "${identifier}"`);
       return send(res, 401, { error: 'Usuario o contraseña incorrectos' });
     }
+
     console.log(`[LOGIN] usuario encontrado | id: ${user.id} | rol: ${user.rol}`);
+
     if (!user.password_hash) {
-      console.error(`[LOGIN] ERROR — password_hash NULL para ${user.id}. Recrear la cuenta.`);
+      console.error(`[LOGIN] ERROR — password_hash NULL para ${user.id}`);
       return send(res, 500, { error: 'Error de configuración de cuenta. Contacta al administrador.' });
     }
+
     let ok = false;
     try {
       ok = verifyPassword(password, user.password_hash);
@@ -126,12 +156,20 @@ async function route(req, res, body) {
       console.error(`[LOGIN] ERROR en verifyPassword | ${user.id} | ${e.message}`);
       return send(res, 500, { error: 'Error interno de verificación. Contacta al administrador.' });
     }
+
     if (!ok) {
       console.log(`[LOGIN] 401 — contraseña incorrecta | ${user.id}`);
       return send(res, 401, { error: 'Usuario o contraseña incorrectos' });
     }
+
     const token = crypto.randomBytes(32).toString('hex');
-    sessions.set(token, { userId: user.id, nombre: user.nombre, rol: user.rol, simulacionId: null, createdAt: Date.now() });
+    sessions.set(token, {
+      userId:       user.id,
+      nombre:       user.nombre,
+      rol:          user.rol,
+      simulacionId: sessionSimulacionId,   // null para admin, simId para equipo
+      createdAt:    Date.now()
+    });
     res.setHeader('Set-Cookie', `sid=${token}; HttpOnly; Path=/; SameSite=Lax`);
     console.log(`[LOGIN] éxito | id: ${user.id} | rol: ${user.rol}`);
     return send(res, 200, { ok: true, rol: user.rol, id: user.id, nombre: user.nombre });
@@ -241,6 +279,7 @@ async function route(req, res, body) {
     const { nombre, descripcion, totalRounds, copyFromSimId } = body;
     if (!nombre?.trim()) return send(res, 400, { error: 'Nombre de simulación requerido' });
     const user = await storage.findUserById(s.userId);
+    if (!user) return send(res, 401, { error: 'Sesión inválida. Vuelve a iniciar sesión.' });
     const ownerId = user.id;
     const simId = storage.genSimId();
     const codigoAcceso = storage.genCodigo();
