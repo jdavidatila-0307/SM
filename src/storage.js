@@ -93,9 +93,24 @@ async function createSimulacion(ownerId, simData) {
       config, parametros, tipos_producto, canales, segmentos,
       afinidad_matrix, competencia_externa, rondas, users
      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-    [id, ownerId, nombre, descripcion, codigoAcceso, estado, creadaAt,
-     config, parametros, tiposProducto, canales, segmentos,
-     afinidadMatrix, competenciaExterna, rondas, users]
+    [
+      id, 
+      ownerId, 
+      nombre, 
+      descripcion, 
+      codigoAcceso, 
+      estado, 
+      creadaAt,
+      JSON.stringify(config),                // ← JSONB
+      JSON.stringify(parametros),            // ← JSONB
+      JSON.stringify(tiposProducto),         // ← JSONB
+      JSON.stringify(canales),               // ← JSONB
+      JSON.stringify(segmentos),             // ← JSONB
+      JSON.stringify(afinidadMatrix),        // ← JSONB
+      JSON.stringify(competenciaExterna),    // ← JSONB
+      JSON.stringify(rondas || {}),          // ← JSONB (por si viene null/undefined)
+      JSON.stringify(users || [])            // ← JSONB
+    ]
   );
 }
 
