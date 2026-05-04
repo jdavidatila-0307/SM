@@ -10,10 +10,13 @@ const crypto = require('crypto');
 // FORZAR ACEPTACIÓN DE CERTIFICADOS SSL AUTOFIRMADOS (solo para este entorno)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-const { hashPassword, verifyPassword } = require('./src/auth');
-const storage  = require('./src/storage');
-const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion } = require('./src/engine');
-const { generarReportes } = require('./src/reports');
+// ── BUG #1 CORREGIDO: rutas sin prefijo './src/' ──────────────
+const { hashPassword, verifyPassword } = require('./auth');
+const storage  = require('./storage');
+const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion } = require('./engine');
+const { generarReportes } = require('./reports');
+// ── Constantes cargadas al inicio (evita require() inline) ────
+const { PARAMS, TIPOS_PRODUCTO, CANALES, SEGMENTOS, AFINIDAD_MATRIX, COMPETENCIA_EXTERNA } = require('./constants');
 
 const PORT = process.env.PORT || 3000;
 console.log('[server] DATABASE_URL definida?', process.env.DATABASE_URL ? 'Sí' : 'No');
@@ -240,12 +243,13 @@ async function route(req, res, body) {
       estado: 'activa',
       creadaAt: new Date().toISOString(),
       config: { currentRound: 1, totalRounds: totalRounds || 20, roundState: 'pending' },
-      parametros: baseSim?.parametros || require('./src/constants').PARAMS,
-      tiposProducto: baseSim?.tipos_producto || require('./src/constants').TIPOS_PRODUCTO,
-      canales: baseSim?.canales || require('./src/constants').CANALES,
-      segmentos: baseSim?.segmentos || require('./src/constants').SEGMENTOS,
-      afinidadMatrix: baseSim?.afinidad_matrix || require('./src/constants').AFINIDAD_MATRIX,
-      competenciaExterna: baseSim?.competencia_externa || require('./src/constants').COMPETENCIA_EXTERNA,
+      // ── BUG #1 CORREGIDO: require('./src/constants') → constante importada al inicio ──
+      parametros:        baseSim?.parametros        || PARAMS,
+      tiposProducto:     baseSim?.tipos_producto    || TIPOS_PRODUCTO,
+      canales:           baseSim?.canales           || CANALES,
+      segmentos:         baseSim?.segmentos         || SEGMENTOS,
+      afinidadMatrix:    baseSim?.afinidad_matrix   || AFINIDAD_MATRIX,
+      competenciaExterna:baseSim?.competencia_externa|| COMPETENCIA_EXTERNA,
       rondas: {},
       users: [],
     };
