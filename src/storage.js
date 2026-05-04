@@ -22,11 +22,27 @@ async function findUserByEmailOrId(identifier) {
 }
 
 async function createUser(id, nombre, email, passwordHash, passwordPlain, rol) {
-  await pool.query(
-    `INSERT INTO usuarios (id, nombre, email, password_hash, password_plain, rol)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [id, nombre, email, passwordHash, passwordPlain, rol]
-  );
+  // Intentar INSERT con password_plain. Si la columna no existe en la BD,
+  // reintentar sin ella para no bloquear la creación del profesor.
+  try {
+    await pool.query(
+      `INSERT INTO usuarios (id, nombre, email, password_hash, password_plain, rol)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, nombre, email, passwordHash, passwordPlain, rol]
+    );
+  } catch (e) {
+    if (e.message && e.message.includes('password_plain')) {
+      // Columna password_plain no existe — insertar sin ella
+      console.warn('[storage] columna password_plain no existe en usuarios, insertando sin ella.');
+      await pool.query(
+        `INSERT INTO usuarios (id, nombre, email, password_hash, rol)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, nombre, email, passwordHash, rol]
+      );
+    } else {
+      throw e; // Re-lanzar cualquier otro error de BD
+    }
+  }
 }
 
 async function listUsers(rol = null) {
