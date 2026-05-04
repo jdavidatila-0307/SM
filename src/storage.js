@@ -21,12 +21,27 @@ async function findUserById(id) {
 
 async function findUserByEmailOrId(identifier) {
   // ILIKE hace la búsqueda de email insensible a mayúsculas/minúsculas
-  // Ej: "Prof@Email.com" y "prof@email.com" son equivalentes
   const res = await pool.query(
     'SELECT * FROM usuarios WHERE id = $1 OR email ILIKE $1',
     [identifier]
   );
   return res.rows[0] || null;
+}
+
+// Busca un equipo por nombre de equipo en TODAS las simulaciones.
+// Permite que los equipos vuelvan a ingresar después de que Render reinicia
+// (ya que las sesiones en memoria se pierden con cada reinicio del servidor).
+async function findEquipoByNombre(nombre) {
+  const nombreLower = nombre.toLowerCase().trim();
+  const sims = await listSimulaciones();
+  for (const sim of sims) {
+    const users = sim.users || [];
+    const equipo = users.find(u => u.nombre && u.nombre.toLowerCase() === nombreLower);
+    if (equipo) {
+      return { equipo, simulacionId: sim.id };
+    }
+  }
+  return null;
 }
 
 async function createUser(id, nombre, email, passwordHash, passwordPlain, rol) {
@@ -288,7 +303,8 @@ function genCodigo() {
 }
 
 module.exports = {
-  findUserById, findUserByEmailOrId, createUser, listUsers, deleteUser,
+  findUserById, findUserByEmailOrId, findEquipoByNombre,
+  createUser, listUsers, deleteUser,
   createSimulacion, getSimulacion, listSimulaciones, updateSimulacion, deleteSimulacion,
   getEquipos, addEquipo, findUserInSimulacion,
   getRonda, updateRonda, ensureRonda, defaultDecision,
