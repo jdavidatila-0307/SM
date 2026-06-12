@@ -90,6 +90,8 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-mercado') loadAdminMercado();
       if (btn.dataset.view === 'admin-parametros') loadAdminParametros();
       if (btn.dataset.view === 'admin-segmentos') loadAdminSegmentos();
+      if (btn.dataset.view === 'admin-profesores') loadAdminProfesores();
+      if (btn.dataset.view === 'eq-manual') { buildManual(); }
     });
   });
 }
@@ -101,23 +103,32 @@ function initLogin() {
   document.getElementById('loginId').addEventListener('keydown', e => e.key==='Enter' && doLogin());
   document.getElementById('loginPass').addEventListener('keydown', e => e.key==='Enter' && doLogin());
   document.getElementById('btnLogin').addEventListener('click', doLogin);
+  const btnManual = document.getElementById('btnVerManualLogin');
+  if (btnManual) btnManual.addEventListener('click', buildManual);
   initRegistroUI();
 }
 
 async function doLogin() {
   const id   = document.getElementById('loginId').value.trim();
   const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
+  const errEl  = document.getElementById('loginError');
+  const hintEl = document.getElementById('loginHint');
   errEl.textContent = '';
+  if (hintEl) hintEl.style.display = 'none';
   const btn = document.getElementById('btnLogin');
   btn.textContent = 'Ingresando...'; btn.disabled = true;
   try {
     const data = await api('POST','/auth/login',{id,password:pass});
     state.me = data;
-    if (data.rol === 'admin') await initAdmin();
+    if (data.rol === 'admin' || data.rol === 'superadmin' || data.rol === 'profesor') await initAdmin();
     else await initEquipo();
   } catch(e) {
     errEl.textContent = e.message;
+    // BUG #5 CORREGIDO: hint contextual si el identificador no parece email
+    if (hintEl && !id.includes('@') && e.message.toLowerCase().includes('contraseña')) {
+      hintEl.textContent = '💡 ¿Eres profesor? Intenta ingresar con tu correo electrónico.';
+      hintEl.style.display = 'block';
+    }
   } finally {
     btn.textContent = 'Ingresar →'; btn.disabled = false;
   }
@@ -1536,13 +1547,30 @@ async function initEquipo() {
     });
   });
 
-  // Load referencia from decisiones endpoint (v2.0 returns it inline)
-  const decData = await api('GET','/api/decisiones');
-  state.ref = decData.referencia || null;
-  state.decisiones = decData.decision;
-
-  // Load hoja (default view)
-  await loadHojaDecision();
+  // ── BUG CORREGIDO: /api/decisiones lanzaba 400 si la sesión perdió
+  //    simulacionId (ej: relogin después de expiración de cookie).
+  //    Ahora muestra mensaje claro en lugar de romper toda la inicialización.
+  try {
+    const decData = await api('GET', '/api/decisiones');
+    state.ref = decData.referencia || null;
+    state.decisiones = decData.decision;
+    await loadHojaDecision();
+  } catch(e) {
+    const wrap = document.getElementById('decisionFormWrap');
+    if (wrap) {
+      wrap.innerHTML = `
+        <div class="empty-state" style="padding:40px 20px;text-align:center">
+          <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+          <h3 style="margin-bottom:8px">Sesión sin simulación activa</h3>
+          <p style="color:var(--text3);font-size:.88rem;margin-bottom:20px">
+            Tu sesión expiró o fue iniciada sin un código de simulación.<br>
+            Cierra sesión y vuelve a ingresar con tu nombre de equipo y contraseña,<br>
+            o solicita al profesor que reactive tu acceso.
+          </p>
+          <button class="btn btn-primary" onclick="doLogout()">Cerrar sesión →</button>
+        </div>`;
+    }
+  }
 }
 
 // ── Decision Form ──────────────────────────────────────────
@@ -3011,36 +3039,7 @@ function renderEquipoDashboard(el, cmp, miResultado, historial) {
   }
 }
 function buildManual() {
-  document.getElementById('manualContent').innerHTML = `
-    <div class="manual-section"><h3>🎯 Rol y Objetivo</h3>
-      <p>Tu equipo es la <strong>gerencia de marketing</strong> de una empresa de jaboncillos boliviana. Compiten en un mercado de <strong>USD 90M anuales</strong> durante <strong>20 trimestres (5 años)</strong>.</p>
-      <p>Cada trimestre decides: segmento, producto, precios, canal, marketing, producción y financiamiento.</p></div>
-    <div class="manual-section"><h3>📋 Flujo de cada Ronda</h3>
-      <p><strong>1.</strong> El profesor abre la ronda → tus saldos se pre-cargan del trimestre anterior.</p>
-      <p><strong>2.</strong> Completas tus decisiones y presionas <strong>Enviar</strong>.</p>
-      <p><strong>3.</strong> El profesor ejecuta la simulación cuando todos (o el tiempo vence).</p>
-      <p><strong>4.</strong> Ves tus resultados en "Mis Resultados" y los reportes comprados en "Reportes".</p></div>
-    <div class="manual-section"><h3>🔍 Investigaciones de Mercado</h3>
-      <table class="manual-table"><thead><tr><th>Reporte</th><th>Costo</th><th>Revela</th></tr></thead><tbody>
-        <tr><td>📊 Segmentación</td><td>Bs 1,000</td><td>Tamaños, tendencias y demanda formal por segmento</td></tr>
-        <tr><td>💲 Precios</td><td>Bs 1,200</td><td>Precios promedio y rangos aceptables por segmento</td></tr>
-        <tr><td>🔍 Competencia</td><td>Bs 1,500</td><td>Estadísticas agregadas del mercado (sin nombres)</td></tr>
-        <tr><td>📦 Canales</td><td>Bs 800</td><td>Factores de percepción y canal preferido por segmento</td></tr>
-      </tbody></table></div>
-    <div class="manual-section"><h3>⚡ Fórmulas Clave</h3>
-      <p><strong>Atractivo competitivo</strong> = suma ponderada de 6 componentes vs. el competidor externo del segmento.</p>
-      <p><strong>Market share</strong> = Atractivo del equipo ÷ Atractivo total (equipos + competidor externo)</p>
-      <p><strong>Costo unitario</strong> = Costo base × (1 + ΔCalidad×4% + ΔDif×3%) × (1 − Descuento escala)</p>
-      <p><strong>EBIT</strong> = Ingresos − COGS − Personal − Marketing − Investigación − Inventario</p></div>
-    <div class="manual-section"><h3>🏅 Rúbrica (100 pts)</h3>
-      <table class="manual-table"><thead><tr><th>Criterio</th><th>Pts</th></tr></thead><tbody>
-        <tr><td>Coherencia estratégica</td><td>20</td></tr>
-        <tr><td>Resultados comerciales</td><td>20</td></tr>
-        <tr><td>Gestión financiera</td><td>20</td></tr>
-        <tr><td>Uso de investigación</td><td>20</td></tr>
-        <tr><td>Análisis final</td><td>20</td></tr>
-      </tbody></table></div>
-  `;
+  window.open('/manual.html', '_blank');
 }
 
 // ── Imprimir Hoja de Decisión ──────────────────────────────
@@ -3075,6 +3074,164 @@ function printHoja() {
   win.document.close();
 }
 
+// ============================
+// ADMIN - Gestión de Profesores
+// ============================
+
+async function loadAdminProfesores() {
+  const container = document.getElementById('profesoresContent');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">Cargando...</div>';
+  try {
+    const profesores = await api('GET', '/admin/usuarios');
+    renderProfesores(container, profesores);
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+function renderProfesores(container, profesores) {
+  // El botón "Crear profesor" usa onclick="crearProfesor()" (función global window.crearProfesor).
+  // No se usa addEventListener para evitar problemas de timing al reconstruir el DOM.
+
+  if (!profesores.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👨‍🏫</div>
+        <p>No hay profesores registrados. Crea el primero abajo.</p>
+      </div>
+      ${formAgregarProfesor()}
+    `;
+    return;
+  }
+
+  // BUG #4 CORREGIDO: muestra password_plain con toggle + botón copiar credenciales
+  const rows = profesores.map(prof => {
+    const pwId = `pw_${prof.id}`;
+    const pw   = prof.password_plain || '(ver con superadmin)';
+    return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(prof.nombre)}</strong><br>
+          <span style="font-size:.7rem;color:var(--text3)">${prof.id}</span>
+        </td>
+        <td>${escapeHtml(prof.email || '—')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input id="${pwId}" type="password" value="${escapeHtml(pw)}" readonly
+              style="border:none;background:var(--bg2);padding:3px 8px;border-radius:6px;
+                     font-family:monospace;font-size:.8rem;width:110px;color:var(--text1)">
+            <button class="btn btn-ghost btn-sm"
+              onclick="toggleInputPw('${pwId}',this)" title="Mostrar/ocultar">👁</button>
+            <button class="btn btn-ghost btn-sm" title="Copiar credenciales"
+              onclick="navigator.clipboard.writeText('Email: ${escapeHtml(prof.email)} | Contraseña: ${escapeHtml(pw)}').then(()=>toast('Credenciales copiadas','success'))">📋</button>
+          </div>
+        </td>
+        <td style="font-size:.78rem">${fmt.dt(prof.creado_at)}</td>
+        <td style="text-align:center">
+          <button class="btn btn-danger btn-sm"
+            onclick="eliminarProfesor('${prof.id}','${escapeHtml(prof.nombre)}')">✕ Eliminar</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table style="width:100%">
+        <thead>
+          <tr>
+            <th>Nombre / ID</th>
+            <th>Email (usar para login)</th>
+            <th>Contraseña</th>
+            <th>Registrado</th>
+            <th style="width:100px">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${formAgregarProfesor()}
+  `;
+}
+
+// ── FIX: función global para crear profesor (evita depender de addEventListener) ──
+window.crearProfesor = async () => {
+  const nombre   = (document.getElementById('profNombre')?.value || '').trim();
+  const email    = (document.getElementById('profEmail')?.value || '').trim();
+  const password = document.getElementById('profPassword')?.value || '';
+  const btn      = document.getElementById('btnCrearProfesor');
+
+  if (!nombre || !email || !password) {
+    toast('Complete todos los campos', 'error');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+  try {
+    const resultado = await api('POST', '/admin/usuarios', { nombre, email, password });
+    const pw = resultado.password_plain || password;
+    toast(`✓ Profesor "${nombre}" creado  |  Email: ${email}  |  Contraseña: ${pw}`, 'success');
+    // Copiar automáticamente al portapapeles
+    navigator.clipboard?.writeText(`Email: ${email} | Contraseña: ${pw}`).catch(() => {});
+    loadAdminProfesores();
+  } catch (err) {
+    toast(`Error al crear profesor: ${err.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Crear profesor'; }
+  }
+};
+
+function formAgregarProfesor() {
+  return `
+    <div class="param-card" style="margin-top:16px">
+      <div class="param-card-title">➕ Agregar nuevo profesor</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end">
+        <div style="flex:2; min-width:150px">
+          <label class="form-label">Nombre completo</label>
+          <input type="text" id="profNombre" class="form-input" placeholder="Ej: Prof. Juan Pérez">
+        </div>
+        <div style="flex:2; min-width:150px">
+          <label class="form-label">Correo electrónico</label>
+          <input type="email" id="profEmail" class="form-input" placeholder="juan@ejemplo.com">
+        </div>
+        <div style="flex:1; min-width:120px">
+          <label class="form-label">Contraseña</label>
+          <div class="pw-input-wrap">
+            <input type="password" id="profPassword" class="form-input" placeholder="******">
+            <button type="button" class="btn-eye-input" onclick="toggleInputPw('profPassword',this)">👁</button>
+          </div>
+        </div>
+        <div>
+          <button type="button" id="btnCrearProfesor" class="btn btn-primary"
+            onclick="crearProfesor()">✓ Crear profesor</button>
+        </div>
+      </div>
+      <p style="font-size:.72rem;color:var(--text3);margin-top:8px">
+        ℹ️ El profesor ingresará con su correo electrónico y la contraseña que definas aquí.
+      </p>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+window.eliminarProfesor = async (id, nombre) => {
+  if (!confirm(`¿Eliminar profesor "${nombre}"? Se eliminarán también sus simulaciones. Esta acción no se puede deshacer.`)) return;
+  try {
+    await api('DELETE', `/admin/usuarios/${id}`);
+    toast(`Profesor "${nombre}" eliminado`, 'success');
+    loadAdminProfesores();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+};
+
 // ── Logout ─────────────────────────────────────────────────
 async function doLogout() {
   await api('POST','/auth/logout');
@@ -3090,10 +3247,16 @@ async function doLogout() {
 async function init() {
   initLogin();
   try {
-    const me = await api('GET','/auth/me');
+    const me = await api('GET', '/auth/me');
     state.me = me;
-    if (me.rol === 'admin') await initAdmin();
-    else await initEquipo();
+    // ── BUG CRÍTICO CORREGIDO: 'admin' solo era el único rol aceptado.
+    //    'superadmin' y 'profesor' caían a initEquipo() causando 400 en
+    //    /api/decisiones → excepción → vuelta al login en cada recarga.
+    if (me.rol === 'admin' || me.rol === 'superadmin' || me.rol === 'profesor') {
+      await initAdmin();
+    } else {
+      await initEquipo();
+    }
   } catch {
     showScreen('screen-login');
   }

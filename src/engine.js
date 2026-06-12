@@ -1,5 +1,5 @@
 /**
- * MOTOR DE CÁLCULO v2.0
+ * MOTOR DE CÁLCULO v2.1
  * Fórmulas basadas en el ejemplo integral del documento.
  * cfg = { params, tiposProducto, canales, segmentos, afinidadMatrix, competenciaExterna }
  */
@@ -7,6 +7,82 @@
 // ── Helpers ────────────────────────────────────────────────────
 function avg(a, b) { return (a + b) / 2; }
 function roundBs(x) { return Math.round(x * 100) / 100; }
+
+// ── Normalización de nombres ───────────────────────────────────
+// Convierte variantes históricas / errores tipográficos al nombre
+// canónico registrado en tiposProducto / canales / segmentos.
+// Se aplica tanto en el motor como en la capa de guardado (server.js).
+
+const ALIAS_PRODUCTO = {
+  'antibacteriano': 'Antibacterial',
+  'antibacteriales': 'Antibacterial',
+  'cosmetico':      'Cosmético',
+  'cosméticos':     'Cosmético',
+  'dermatologico':  'Dermatológico',
+  'dermatologicos': 'Dermatológico',
+  'basico':         'Básico',
+  'basicos':        'Básico',
+  'naturales':      'Natural',
+  'institucionales':'Institucional',
+};
+
+const ALIAS_CANAL = {
+  'mercados':       'Mercado',
+  'supermercados':  'Supermercado',
+  'farmacias':      'Farmacia',
+  'digitales':      'Digital',
+  'institucionales':'Institucional',
+  'ninguno':        'Ninguno',
+};
+
+const ALIAS_SEGMENTO = {
+  'masivo popular':      'Masivo popular',
+  'masivo aspiracional': 'Masivo aspiracional',
+  'funcional familiar':  'Funcional familiar',
+  'cosmético':           'Cosmético',
+  'cosmetico':           'Cosmético',
+  'dermatológico':       'Dermatológico',
+  'dermatologico':       'Dermatológico',
+  'natural':             'Natural',
+  'institucional':       'Institucional',
+};
+
+/**
+ * Intenta resolver el nombre recibido contra un catálogo activo (obj con claves exactas).
+ * Estrategia: 1) exacto  2) alias precargado  3) búsqueda case-insensitive sin tildes.
+ * Devuelve el nombre canónico si lo encuentra, o el original para que el error sea descriptivo.
+ */
+function resolverNombre(valor, catalogoKeys, aliasMap) {
+  if (!valor) return valor;
+  // 1. Coincidencia exacta
+  if (catalogoKeys.includes(valor)) return valor;
+  // 2. Alias explícito (sin tilde, minúsculas)
+  const sinTilde = valor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (aliasMap[sinTilde]) return aliasMap[sinTilde];
+  // 3. Búsqueda fuzzy case-insensitive sin tildes sobre las claves del catálogo
+  const match = catalogoKeys.find(k =>
+    k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === sinTilde
+  );
+  return match || valor; // si no hay match, devuelve el original (el error será descriptivo)
+}
+
+/**
+ * Normaliza in-place todos los campos de texto de una decisión que
+ * deben coincidir con claves de los catálogos de configuración.
+ * Se llama antes de cualquier cálculo.
+ */
+function normalizarDecision(d, tiposProducto, canales, segmentos) {
+  const prodKeys = Object.keys(tiposProducto);
+  const canalKeys = Object.keys(canales);
+  const segKeys = segmentos.map(s => s.nombre || s);
+
+  if (d.producto)         d.producto         = resolverNombre(d.producto,         prodKeys,  ALIAS_PRODUCTO);
+  if (d.canalPrincipal)   d.canalPrincipal   = resolverNombre(d.canalPrincipal,   canalKeys, ALIAS_CANAL);
+  if (d.canalSecundario && d.canalSecundario !== 'Ninguno')
+                          d.canalSecundario   = resolverNombre(d.canalSecundario,  canalKeys, ALIAS_CANAL);
+  if (d.segmentoObjetivo) d.segmentoObjetivo = resolverNombre(d.segmentoObjetivo, segKeys,   ALIAS_SEGMENTO);
+  return d;
+}
 
 // Demanda formal = demandaBase × (1 - pctContrabando)
 function calcularMercadoSegmentos(params, segmentos) {
@@ -293,6 +369,9 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
 function ejecutarSimulador(decisiones, cfg) {
   const { params, tiposProducto, canales, segmentos, afinidadMatrix } = cfg;
 
+  // Normalizar campos de texto de cada decisión antes de cualquier cálculo
+  decisiones.forEach(d => normalizarDecision(d, tiposProducto, canales, segmentos));
+
   // Calcular demanda formal de cada segmento
   const mercadoSegmentos = calcularMercadoSegmentos(params, segmentos);
   const segmentoPorNombre = {};
@@ -385,6 +464,9 @@ function ejecutarSimulador(decisiones, cfg) {
 function calcularPreSimulacion(decisiones, cfg) {
   const { params, tiposProducto, canales, segmentos, afinidadMatrix } = cfg;
 
+  // Normalizar campos de texto de cada decisión antes de cualquier cálculo
+  decisiones.forEach(d => normalizarDecision(d, tiposProducto, canales, segmentos));
+
   const mercadoSegmentos = calcularMercadoSegmentos(params, segmentos);
   const segmentoPorNombre = {};
   mercadoSegmentos.forEach((s, i) => { segmentoPorNombre[s.nombre] = { ...s, idx: i }; });
@@ -451,4 +533,4 @@ function calcularPreSimulacion(decisiones, cfg) {
   return { mercadoSegmentos, resultado };
 }
 
-module.exports = { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion };
+module.exports = { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, normalizarDecision };
