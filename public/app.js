@@ -364,17 +364,19 @@ async function loadAdminSimulaciones() {
             <div style="padding:10px 16px"><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Creada</div><div style="font-size:.78rem;margin-top:3px">${sim.creadaAt?new Date(sim.creadaAt).toLocaleDateString('es-BO'):'-'}</div></div>
           </div>
           <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">
-            ${sim.estado==='activa'
+             ${sim.estado==='activa'
               ? `<button class="btn btn-success btn-sm" onclick="seleccionarSim('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')">▶ Acceder a esta simulación</button>
                  <button class="btn btn-ghost btn-sm" onclick="copiarCodigo('${sim.codigoAcceso||''}')">📋 Copiar código</button>
                  <button class="btn btn-ghost btn-sm" onclick="archivarSim('${sim.id}')">📦 Archivar</button>
+                 <button class="btn btn-ghost btn-sm" onclick="recalcularSimulacion('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" title="Repara valores negativos y balances descuadrados">🔄 Recalcular</button>
                  <button class="btn btn-ghost btn-sm" onclick="eliminarSim('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" style="color:var(--accent4)">✕ Eliminar</button>`
               : `<button class="btn btn-ghost btn-sm" onclick="activarSim('${sim.id}')">♻ Reactivar</button>
+                 <button class="btn btn-ghost btn-sm" onclick="recalcularSimulacion('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" title="Repara valores negativos y balances descuadrados">🔄 Recalcular</button>
                  <button class="btn btn-ghost btn-sm" onclick="eliminarSim('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" style="color:var(--accent4)">✕ Eliminar</button>`}
           </div>
         </div>`;
     };
-
+    
     el.innerHTML = `
       <div class="section-header">
         <h2>🎮 Gestión de Simulaciones</h2>
@@ -3239,6 +3241,33 @@ async function doLogout() {
   showScreen('screen-login');
   document.getElementById('loginId').value = '';
   document.getElementById('loginPass').value = '';
+}
+
+// ── RECALCULADOR ────────────────────────────────────────────
+async function recalcularSimulacion(simId, nombre) {
+  if (!confirm(`¿Recalcular TODAS las rondas simuladas de "${nombre}"?\n\nSe sobrescribirán los resultados actuales.`)) return;
+  try {
+    toast('Recalculando...', 'info');
+    const res = await api('POST', '/admin/recalcular-simulacion', { simId });
+    toast(`✓ "${nombre}": ${res.rondasReparadas} rondas reparadas.`, 'success');
+    if (state.currentSimId === simId) {
+      document.querySelector('[data-view="admin-dashboard"]')?.click();
+    }
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function recalcularTodas() {
+  if (!confirm('¿Recalcular TODAS las simulaciones del sistema? Esta operación puede tardar varios segundos.')) return;
+  try {
+    toast('Recalculando todas las simulaciones...', 'info');
+    const res = await api('POST', '/admin/recalcular-todas');
+    toast(`✓ ${res.simulaciones.length} simulaciones procesadas.`, 'success');
+    loadAdminSimulaciones();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
