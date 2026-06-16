@@ -304,28 +304,18 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
 
   let cajaPreliminar = roundBs(cajaInicial + cobrosContado + ingresoPrestamo - totalPagos);
 
-    // ── Sobregiro automático si caja < 0 ──────────────────────────
+  // Sobregiro automático si caja < 0
   let sobregiro = 0, interesSobregiro = 0;
   if (cajaPreliminar < 0) {
-    // Para que el balance cuadre, el sobregiro debe cubrir también el interés.
-    // Sea S = sobregiro total, entonces S = déficit + S * tasa
-    // → S = déficit / (1 - tasa)
-    const deficit = -cajaPreliminar;
-    const tasa = params.tasaSobregiro;
-    if (tasa < 1) {
-      sobregiro = roundBs(deficit / (1 - tasa));
-    } else {
-      sobregiro = deficit; // seguridad, no debería ocurrir
-    }
-    interesSobregiro = roundBs(sobregiro * tasa);
-    cajaPreliminar = roundBs(cajaInicial + cobrosContado + ingresoPrestamo - totalPagos + sobregiro);
-    if (cajaPreliminar < 0) cajaPreliminar = 0; // por redondeo
-    utilidadNeta = roundBs(utilidadNeta - interesSobregiro);
-    gastosOp = roundBs(gastosOp + interesSobregiro);
+    sobregiro        = roundBs(-cajaPreliminar);
+    interesSobregiro = roundBs(sobregiro * params.tasaSobregiro);
+    cajaPreliminar   = 0;
+    utilidadNeta     = roundBs(utilidadNeta - interesSobregiro);
+    gastosOp         = roundBs(gastosOp + interesSobregiro);
   }
   const cajaFinal = cajaPreliminar;
 
-  // CxC final = CxC anterior no cobrado + nuevas ventas a crédito
+   // CxC final = CxC anterior no cobrado + nuevas ventas a crédito
   const cxcNuevo     = roundBs(ventasNetas * params.pctVentasCredito);
   const cxcNoCobrObj = roundBs((d.cxcInicial || 0) - cxcCobroEsta);
   const cxcFinal     = roundBs(Math.max(0, cxcNoCobrObj) + cxcNuevo);
@@ -333,7 +323,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   // Deuda final = préstamos + sobregiro (el interés del sobregiro va como pasivo separado)
   const amortizacion = d.amortizacion || 0;
   const deudaPrestamos = roundBs(Math.max(0, (d.deudaInicial || 0) + ingresoPrestamo - amortizacion));
-  const deudaFinal = roundBs(deudaPrestamos + sobregiro);
+  const deudaFinal = roundBs(deudaPrestamos + sobregiro + interesSobregiro);
 
   // Activos fijos netos
   const afNetos = roundBs((d.activosFijosIniciales || params.activosFijosIniciales) - params.depreciacionTrimestral);
