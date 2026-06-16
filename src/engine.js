@@ -299,13 +299,14 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const pagoAdmin      = params.gastoAdminFijo;
   const pagoPlanta     = params.gastoFijoPlanta;
   // Nota: depreciación no es salida de caja
-  const pagoInnovacion = gastoInnovacion;
-  const pagoAlmacen    = costoAlmacenamiento;
-  const pagoIntereses  = interesesPrestamo;
-  const pagoApertura   = comisionApertura;
+  const pagoInnovacion   = gastoInnovacion;
+  const pagoAlmacen      = costoAlmacenamiento;
+  const pagoIntereses    = interesesPrestamo;
+  const pagoApertura     = comisionApertura;
+  const pagoAmortizacion = d.amortizacion || 0; // ★ la amortización es salida de caja
 
   const totalPagos = roundBs(pagoProduccion + pagoMktTotal + pagoAdmin + pagoPlanta +
-    pagoInnovacion + pagoAlmacen + pagoIntereses + pagoApertura);
+    pagoInnovacion + pagoAlmacen + pagoIntereses + pagoApertura + pagoAmortizacion);
 
   const cajaInicial   = d.cajaInicial || 0;
   const ingresoPrestamo = tipoP !== 'Ninguno' ? montoP : 0;
@@ -367,7 +368,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     // Flujo de Efectivo
     cajaInicial, cobrosContado, ingresoPrestamo,
     pagoProduccion, pagoMktTotal, pagoAdmin, pagoPlanta,
-    pagoInnovacion, pagoAlmacen, pagoIntereses, pagoApertura,
+    pagoInnovacion, pagoAlmacen, pagoIntereses, pagoApertura, pagoAmortizacion,
     totalPagos, sobregiro, cajaFinal,
 
     // Balance
