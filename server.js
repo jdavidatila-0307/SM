@@ -838,6 +838,7 @@ async function route(req, res, body) {
 
     // Variables para propagar saldos entre rondas
     let ultimosResultados = null; // guardará los resultados de la ronda anterior
+    let ultimaRondaSimulada = null; // nº de la última ronda recalculada OK
 
     for (const [rondaNumStr, rondaData] of rondasOrdenadas) {
       const rondaNum = parseInt(rondaNumStr);
@@ -886,9 +887,40 @@ async function route(req, res, body) {
 
         // Guardar estos resultados para la siguiente iteración
         ultimosResultados = rondaData.resultados;
+        ultimaRondaSimulada = rondaNum;
         resumen.push({ ronda: rondaNum, equipos: decisiones.length, ok: true });
       } catch (e) {
         resumen.push({ ronda: rondaNum, error: e.message });
+      }
+    }
+
+    // ── Propagar saldos a la ronda ABIERTA siguiente ──────────────
+    // El loop solo recalcula rondas 'simulated'. La ronda siguiente (open/pending)
+    // tiene sus saldos iniciales sembrados por ensureRonda desde los resultados VIEJOS.
+    // Hay que re-sembrarlos con ultimosResultados para no romper el encadenamiento.
+    if (ultimosResultados && ultimaRondaSimulada !== null) {
+      const siguienteNum = ultimaRondaSimulada + 1;
+      const rondaSiguiente = rondas[String(siguienteNum)];
+      if (rondaSiguiente && rondaSiguiente.estado !== 'simulated' && rondaSiguiente.decisiones) {
+        let propagados = 0;
+        for (const eq of equipos) {
+          const decSig = rondaSiguiente.decisiones[eq.id];
+          const resAnt = ultimosResultados[eq.id];
+          if (!decSig || !resAnt) continue;
+          decSig.cajaInicial           = Math.max(0, resAnt.cajaFinal);
+          decSig.cxcInicial            = Math.max(0, resAnt.cxcFinal);
+          decSig.deudaInicial          = Math.max(0, resAnt.deudaFinal);
+          decSig.inventarioInicial     = Math.max(0, resAnt.inventarioFinal);
+          decSig.vendedoresIniciales   = Math.max(1, resAnt.vendedoresFinales);
+          decSig.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
+          decSig.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
+          decSig.costoUnitarioAnterior = resAnt.costoUnitario || 0;
+          propagados++;
+        }
+        if (propagados > 0) {
+          await storage.updateRonda(simId, siguienteNum, { decisiones: rondaSiguiente.decisiones }, ownerId);
+          resumen.push({ ronda: siguienteNum, saldosPropagados: propagados });
+        }
       }
     }
 
