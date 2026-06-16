@@ -808,7 +808,7 @@ async function route(req, res, body) {
 
   
   // ═══ RECALCULADOR (puede dejarse permanente) ═══════════════
-  if (url === '/admin/recalcular-simulacion' && method === 'POST') {
+    if (url === '/admin/recalcular-simulacion' && method === 'POST') {
     if (needAdmin()) return;
     const { simId } = body;
     if (!simId) return send(res, 400, { error: 'simId requerido' });
@@ -827,76 +827,71 @@ async function route(req, res, body) {
       competenciaExterna: simToFix.competencia_externa
     };
 
-    const rondasFix = simToFix.rondas || {};
+    const rondas = simToFix.rondas || {};
     const equipos = simToFix.users || [];
     const resumen = [];
 
-    for (const [rondaNum, rondaData] of Object.entries(rondasFix)) {
-      if (rondaData.estado !== 'simulated') continue;
-      const decisiones = equipos.filter(eq => rondaData.decisiones[eq.id]).map(eq => ({ ...rondaData.decisiones[eq.id] }));
+    // Ordenar rondas numéricamente
+    const rondasOrdenadas = Object.entries(rondas)
+      .filter(([, r]) => r.estado === 'simulated')
+      .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+    // Variables para propagar saldos entre rondas
+    let ultimosResultados = null; // guardará los resultados de la ronda anterior
+
+    for (const [rondaNumStr, rondaData] of rondasOrdenadas) {
+      const rondaNum = parseInt(rondaNumStr);
+      // Reconstruir decisiones con saldos iniciales correctos
+      const decisiones = [];
+      for (const eq of equipos) {
+        const dec = rondaData.decisiones[eq.id];
+        if (!dec) continue;
+        // Si hay resultados de la ronda anterior, actualizar saldos iniciales
+        if (ultimosResultados) {
+          const resAnt = ultimosResultados[eq.id];
+          if (resAnt) {
+            dec.cajaInicial = Math.max(0, resAnt.cajaFinal);
+            dec.cxcInicial = Math.max(0, resAnt.cxcFinal);
+            dec.deudaInicial = Math.max(0, resAnt.deudaFinal);
+            dec.inventarioInicial = Math.max(0, resAnt.inventarioFinal);
+            dec.vendedoresIniciales = Math.max(1, resAnt.vendedoresFinales);
+            dec.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
+            dec.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
+          }
+        }
+        decisiones.push({ ...dec });
+      }
+
       if (decisiones.length === 0) continue;
+
       try {
         const result = ejecutarSimulador(decisiones, simCfg);
+        // Guardar resultados en la ronda
         rondaData.mercadoSegmentos = result.mercadoSegmentos;
         rondaData.atractivoEquipos = result.atractivoEquipos;
         rondaData.dashboard = result.dashboard;
         rondaData.resultados = {};
         result.resultados.forEach(r => { rondaData.resultados[r.equipo] = r; });
+
         const reportes = {};
         for (const d of decisiones) {
           reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, rondaData.resultados, simCfg);
         }
         rondaData.reportes = reportes;
-        await storage.updateRonda(simId, parseInt(rondaNum), rondaData, ownerId);
-        resumen.push({ ronda: parseInt(rondaNum), equipos: decisiones.length, ok: true });
+
+        // Persistir la ronda recalculada
+        await storage.updateRonda(simId, rondaNum, rondaData, ownerId);
+
+        // Guardar estos resultados para la siguiente iteración
+        ultimosResultados = rondaData.resultados;
+        resumen.push({ ronda: rondaNum, equipos: decisiones.length, ok: true });
       } catch (e) {
-        resumen.push({ ronda: parseInt(rondaNum), error: e.message });
+        resumen.push({ ronda: rondaNum, error: e.message });
       }
     }
+
     return send(res, 200, { ok: true, simId, rondasReparadas: resumen.length, detalle: resumen });
   }
-
-  if (url === '/admin/recalcular-todas' && method === 'POST') {
-    if (needSuperAdmin()) return;
-    const todas = await storage.listSimulaciones();
-    const resultados = [];
-    for (const sim of todas) {
-      const simCfg = {
-        params: sim.parametros,
-        tiposProducto: sim.tipos_producto,
-        canales: sim.canales,
-        segmentos: sim.segmentos,
-        afinidadMatrix: sim.afinidad_matrix,
-        competenciaExterna: sim.competencia_externa
-      };
-      const rondasFix = sim.rondas || {};
-      const equipos = sim.users || [];
-      let contador = 0;
-      for (const [rondaNum, rondaData] of Object.entries(rondasFix)) {
-        if (rondaData.estado !== 'simulated') continue;
-        const decisiones = equipos.filter(eq => rondaData.decisiones[eq.id]).map(eq => ({ ...rondaData.decisiones[eq.id] }));
-        if (decisiones.length === 0) continue;
-        try {
-          const result = ejecutarSimulador(decisiones, simCfg);
-          rondaData.mercadoSegmentos = result.mercadoSegmentos;
-          rondaData.atractivoEquipos = result.atractivoEquipos;
-          rondaData.dashboard = result.dashboard;
-          rondaData.resultados = {};
-          result.resultados.forEach(r => { rondaData.resultados[r.equipo] = r; });
-          const reportes = {};
-          for (const d of decisiones) {
-            reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, rondaData.resultados, simCfg);
-          }
-          rondaData.reportes = reportes;
-          await storage.updateRonda(sim.id, parseInt(rondaNum), rondaData, null);
-          contador++;
-        } catch (e) { /* omitir errores individuales */ }
-      }
-      resultados.push({ simId: sim.id, nombre: sim.nombre, rondasReparadas: contador });
-    }
-    return send(res, 200, { ok: true, simulaciones: resultados });
-  }
-
 
   // ─── EQUIPO — Decisiones ──────────────────────────────────────
   if (url === '/api/decisiones' && method === 'GET') {
