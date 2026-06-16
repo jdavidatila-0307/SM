@@ -178,13 +178,18 @@ function calcularAtractivo(d, segmento, afinidadMatrix, canales, vendedoresFinal
     ? (d.montoInnovacion || 0) * 0.00005
     : 0;
 
-  return afinidad
+  // ★ PROTECCIÓN: Si el atractivo resulta negativo, se fuerza a 0
+  // Un producto que genera desutilidad neta simplemente no es considerado.
+  let atractivo = afinidad
     + 0.8 * (d.calidad || 5)
-    + 0.0001 * (d.gastoTotalMarketing || d.mktEfectivo || 0)  // usa gasto total incl. vendedores
+    + 0.0001 * (d.gastoTotalMarketing || d.mktEfectivo || 0)
     - 0.7 * (d.precioVenta || 0)
     + bonoCanal
     + impactoVendedores
     + bonusInnovacionCanal;
+
+  if (atractivo < 0) atractivo = 0;
+  return atractivo;
 }
 
 // ── Paso 5b: Participación de mercado ─────────────────────────
@@ -200,7 +205,10 @@ function calcularParticipacion(decision, equiposEnSegmento, segmentoData, afinid
   });
 
   const miAtractivo = atractivoPorEquipo[decision.equipo] ?? 0;
-  const share = totalAtractivo > 0 ? miAtractivo / totalAtractivo : 0;
+  let share = totalAtractivo > 0 ? miAtractivo / totalAtractivo : 0;
+
+  // ★ PROTECCIÓN: Nunca permitir share negativo (restricción contable básica).
+  share = Math.max(0, share);
 
   return { miAtractivo, atractivoPorEquipo, share };
 }
@@ -209,7 +217,8 @@ function calcularParticipacion(decision, equiposEnSegmento, segmentoData, afinid
 function calcularVentas(d, share, demandaFormal, costoUnitario) {
   const inventarioDisponible = (d.inventarioInicial || 0) + (d.produccion || 0);
   const demandaAsignada      = Math.round(demandaFormal * share);
-  const ventasReales         = Math.min(demandaAsignada, inventarioDisponible);
+  // ★ PROTECCIÓN: Las ventas reales nunca pueden ser negativas.
+  const ventasReales         = Math.max(0, Math.min(demandaAsignada, inventarioDisponible));
   const inventarioFinal      = inventarioDisponible - ventasReales;
 
   const ventasBrutas = roundBs(ventasReales * (d.precioVenta || 0));
@@ -505,7 +514,8 @@ function calcularPreSimulacion(decisiones, cfg) {
 
     const inventarioDisponible = (d.inventarioInicial || 0) + (d.produccion || 0);
     const demandaAsignada      = Math.round(seg.demandaFormal * share);
-    const ventasEstimadas      = Math.min(demandaAsignada, inventarioDisponible);
+    // ★ PROTECCIÓN: Las ventas estimadas nunca pueden ser negativas.
+    const ventasEstimadas      = Math.max(0, Math.min(demandaAsignada, inventarioDisponible));
     const inventarioFinalEst   = inventarioDisponible - ventasEstimadas;
 
     const cu = calcularCostoUnitario(d, tiposProducto, canales, params);

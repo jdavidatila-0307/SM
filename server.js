@@ -806,6 +806,98 @@ async function route(req, res, body) {
     return send(res, 200, { ok: true });
   }
 
+  
+  // ═══ RECALCULADOR (puede dejarse permanente) ═══════════════
+  if (url === '/admin/recalcular-simulacion' && method === 'POST') {
+    if (needAdmin()) return;
+    const { simId } = body;
+    if (!simId) return send(res, 400, { error: 'simId requerido' });
+
+    const user = await storage.findUserById(s.userId);
+    const ownerId = user.rol !== 'superadmin' ? user.id : null;
+    const simToFix = await storage.getSimulacion(simId, ownerId);
+    if (!simToFix) return send(res, 404, { error: 'Simulación no encontrada o no autorizada' });
+
+    const simCfg = {
+      params: simToFix.parametros,
+      tiposProducto: simToFix.tipos_producto,
+      canales: simToFix.canales,
+      segmentos: simToFix.segmentos,
+      afinidadMatrix: simToFix.afinidad_matrix,
+      competenciaExterna: simToFix.competencia_externa
+    };
+
+    const rondasFix = simToFix.rondas || {};
+    const equipos = simToFix.users || [];
+    const resumen = [];
+
+    for (const [rondaNum, rondaData] of Object.entries(rondasFix)) {
+      if (rondaData.estado !== 'simulated') continue;
+      const decisiones = equipos.filter(eq => rondaData.decisiones[eq.id]).map(eq => ({ ...rondaData.decisiones[eq.id] }));
+      if (decisiones.length === 0) continue;
+      try {
+        const result = ejecutarSimulador(decisiones, simCfg);
+        rondaData.mercadoSegmentos = result.mercadoSegmentos;
+        rondaData.atractivoEquipos = result.atractivoEquipos;
+        rondaData.dashboard = result.dashboard;
+        rondaData.resultados = {};
+        result.resultados.forEach(r => { rondaData.resultados[r.equipo] = r; });
+        const reportes = {};
+        for (const d of decisiones) {
+          reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, rondaData.resultados, simCfg);
+        }
+        rondaData.reportes = reportes;
+        await storage.updateRonda(simId, parseInt(rondaNum), rondaData, ownerId);
+        resumen.push({ ronda: parseInt(rondaNum), equipos: decisiones.length, ok: true });
+      } catch (e) {
+        resumen.push({ ronda: parseInt(rondaNum), error: e.message });
+      }
+    }
+    return send(res, 200, { ok: true, simId, rondasReparadas: resumen.length, detalle: resumen });
+  }
+
+  if (url === '/admin/recalcular-todas' && method === 'POST') {
+    if (needSuperAdmin()) return;
+    const todas = await storage.listSimulaciones();
+    const resultados = [];
+    for (const sim of todas) {
+      const simCfg = {
+        params: sim.parametros,
+        tiposProducto: sim.tipos_producto,
+        canales: sim.canales,
+        segmentos: sim.segmentos,
+        afinidadMatrix: sim.afinidad_matrix,
+        competenciaExterna: sim.competencia_externa
+      };
+      const rondasFix = sim.rondas || {};
+      const equipos = sim.users || [];
+      let contador = 0;
+      for (const [rondaNum, rondaData] of Object.entries(rondasFix)) {
+        if (rondaData.estado !== 'simulated') continue;
+        const decisiones = equipos.filter(eq => rondaData.decisiones[eq.id]).map(eq => ({ ...rondaData.decisiones[eq.id] }));
+        if (decisiones.length === 0) continue;
+        try {
+          const result = ejecutarSimulador(decisiones, simCfg);
+          rondaData.mercadoSegmentos = result.mercadoSegmentos;
+          rondaData.atractivoEquipos = result.atractivoEquipos;
+          rondaData.dashboard = result.dashboard;
+          rondaData.resultados = {};
+          result.resultados.forEach(r => { rondaData.resultados[r.equipo] = r; });
+          const reportes = {};
+          for (const d of decisiones) {
+            reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, rondaData.resultados, simCfg);
+          }
+          rondaData.reportes = reportes;
+          await storage.updateRonda(sim.id, parseInt(rondaNum), rondaData, null);
+          contador++;
+        } catch (e) { /* omitir errores individuales */ }
+      }
+      resultados.push({ simId: sim.id, nombre: sim.nombre, rondasReparadas: contador });
+    }
+    return send(res, 200, { ok: true, simulaciones: resultados });
+  }
+
+
   // ─── EQUIPO — Decisiones ──────────────────────────────────────
   if (url === '/api/decisiones' && method === 'GET') {
     if (needEquipo()) return;
@@ -866,6 +958,15 @@ async function route(req, res, body) {
     if (!ronda) return send(res, 400, { error: 'Sin ronda' });
     if (ronda.estado === 'simulated') return send(res, 400, { error: 'Ronda simulada' });
     if (sim.config.roundState === 'pending') return send(res, 400, { error: 'Ronda no habilitada' });
+
+    // ★ VALIDACIÓN DE PRECIO: evita atractivos excesivamente negativos
+    if (body.decision && body.decision.precioVenta > 20) {
+      return send(res, 400, { error: 'El precio máximo permitido es de 20 Bs. Ajusta tu estrategia.' });
+    }
+    if (body.decision && body.decision.precioVenta <= 0) {
+      return send(res, 400, { error: 'El precio de venta debe ser mayor a 0 Bs.' });
+    }
+
     const cur = ronda.decisiones[equipoId] || {};
     // Normalizar nombres de catálogo antes de persistir
     const decNorm = normalizarDecision(
@@ -888,6 +989,15 @@ async function route(req, res, body) {
     if (!ronda) return send(res, 400, { error: 'Sin ronda' });
     if (ronda.estado === 'simulated') return send(res, 400, { error: 'Ronda simulada' });
     if (sim.config.roundState === 'pending') return send(res, 400, { error: 'Ronda no habilitada' });
+
+    // ★ VALIDACIÓN DE PRECIO: evita atractivos excesivamente negativos
+    if (body.decision && body.decision.precioVenta > 20) {
+      return send(res, 400, { error: 'El precio máximo permitido es de 20 Bs. Ajusta tu estrategia.' });
+    }
+    if (body.decision && body.decision.precioVenta <= 0) {
+      return send(res, 400, { error: 'El precio de venta debe ser mayor a 0 Bs.' });
+    }
+
     const cur = ronda.decisiones[equipoId] || {};
     // Normalizar nombres de catálogo antes de persistir
     const decNorm = normalizarDecision(
