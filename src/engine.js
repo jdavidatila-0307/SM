@@ -241,22 +241,19 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const comisiones  = roundBs(ventasBrutas * comisionPct);
   const ventasNetas = roundBs(ventasBrutas - comisiones);
 
-  // Inventario final valorizado — método perpetuo con costo histórico
-  // El stock heredado mantiene su costo anterior; solo la producción nueva usa CU actual
-  const cuAnterior           = d.costoUnitarioAnterior || costoUnitario;
-  const invInicialValorizado = roundBs((d.inventarioInicial || 0) * cuAnterior);
+  // Inventario inicial valorizado — se propaga directamente desde invFinalValorizado
+  // de la ronda anterior para mantener consistencia contable exacta
+  const invInicialValorizado = roundBs(d.invInicialValorizado ||
+    (d.inventarioInicial || 0) * (d.costoUnitarioAnterior || costoUnitario));
   const produccionValorizada = roundBs((d.produccion || 0) * costoUnitario);
   const costoAlmacenamiento  = roundBs(inventarioFinal * params.costoAlmacenamientoUnidad);
 
-  // Inventario final valorizado a costo histórico por capas (FIFO):
-  // primero queda el stock heredado (cuAnterior); el excedente, a CU actual
-  const unidadesViejas      = Math.min(inventarioFinal, d.inventarioInicial || 0);
-  const unidadesNuevas      = Math.max(0, inventarioFinal - unidadesViejas);
-  const invFinalValorizado  = roundBs(unidadesViejas * cuAnterior + unidadesNuevas * costoUnitario);
-
-  // Costo de ventas por identidad contable perpetua
-  // Inv.Inicial + Producción = Costo Ventas + Inv.Final  →  siempre cuadra
-  let costoVentas = roundBs(invInicialValorizado + produccionValorizada - invFinalValorizado);
+  // Inventario final valorizado por identidad contable perpetua
+  // invFinal = invInicial + produccion - costoVentas
+  // costoVentas = ventas × costoUnitario (método directo, más simple y exacto)
+  const costoVentasDirecto  = roundBs(ventasReales * costoUnitario);
+  const invFinalValorizado  = roundBs(invInicialValorizado + produccionValorizada - costoVentasDirecto);
+  let costoVentas = costoVentasDirecto;
   if (costoVentas < 0) costoVentas = 0;
 
   // Utilidad bruta — DEBE declararse antes de gastosOp y utilidadNeta

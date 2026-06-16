@@ -860,6 +860,8 @@ async function route(req, res, body) {
             dec.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
             // ★ NUEVO: heredar el costo unitario de la ronda anterior
             dec.costoUnitarioAnterior = resAnt.costoUnitario || 0;
+            // ★ NUEVO: propagar el inventario inicial ya valorizado desde la ronda anterior
+            dec.invInicialValorizado = resAnt.invFinalValorizado;
           }
         } 
         decisiones.push({ ...dec });
