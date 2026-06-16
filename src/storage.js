@@ -278,6 +278,8 @@ async function ensureRonda(simulacionId, n, ownerId = null) {
               nuevaDec.resultadoAcumuladoAnterior = resPrev.resultadoAcumulado;
               // ★ NUEVO: heredar el costo unitario de la ronda anterior
               nuevaDec.costoUnitarioAnterior = resPrev.costoUnitario || 0;
+              // ★ NUEVO: propagar el inventario inicial ya valorizado desde la ronda anterior
+              nuevaDec.invInicialValorizado = resPrev.invFinalValorizado;
             }
             rondaBase.decisiones[eq.id] = nuevaDec;
           } else {

@@ -252,7 +252,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   // invFinal = invInicial + produccion - costoVentas
   // costoVentas = ventas × costoUnitario (método directo, más simple y exacto)
   const costoVentasDirecto  = roundBs(ventasReales * costoUnitario);
-  const invFinalValorizado  = roundBs(invInicialValorizado + produccionValorizada - costoVentasDirecto);
+  const invFinalValorizado  = roundBs(Math.max(0, invInicialValorizado + produccionValorizada - costoVentasDirecto));
   let costoVentas = costoVentasDirecto;
   if (costoVentas < 0) costoVentas = 0;
 

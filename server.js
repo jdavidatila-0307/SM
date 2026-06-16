@@ -917,6 +917,7 @@ async function route(req, res, body) {
           decSig.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
           decSig.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
           decSig.costoUnitarioAnterior = resAnt.costoUnitario || 0;
+          decSig.invInicialValorizado = resAnt.invFinalValorizado;
           propagados++;
         }
         if (propagados > 0) {
