@@ -241,17 +241,21 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const comisiones  = roundBs(ventasBrutas * comisionPct);
   const ventasNetas = roundBs(ventasBrutas - comisiones);
 
-   // Costo de ventas por diferencia de inventario (partida doble)
+  // Inventario final valorizado — DEBE declararse ANTES de costoVentas
+  const invFinalValorizado  = roundBs(inventarioFinal * costoUnitario);
+  const costoAlmacenamiento = roundBs(inventarioFinal * params.costoAlmacenamientoUnidad);
+
+  // Costo de ventas por diferencia de inventario (método perpetuo / partida doble)
+  // costoUnitarioAnterior debe propagarse desde el resultado de la ronda anterior
   const invInicialValorizado = roundBs(
-    (d.inventarioInicial || 0) * (d.costoUnitarioAnterior || 0)
+    (d.inventarioInicial || 0) * (d.costoUnitarioAnterior || costoUnitario)
   );
   const produccionValorizada = roundBs((d.produccion || 0) * costoUnitario);
   let costoVentas = roundBs(invInicialValorizado + produccionValorizada - invFinalValorizado);
   if (costoVentas < 0) costoVentas = 0;   // seguridad, no debería ocurrir
 
-  // Inventario final valorizado
-  const invFinalValorizado = roundBs(inventarioFinal * costoUnitario);
-  const costoAlmacenamiento = roundBs(inventarioFinal * params.costoAlmacenamientoUnidad);
+  // Utilidad bruta — DEBE declararse antes de gastosOp y utilidadNeta
+  const utilidadBruta = roundBs(ventasNetas - costoVentas);
 
   // Innovación (gasto operativo)
   const gastoInnovacion = d.innovacion ? (d.montoInnovacion || 0) : 0;
