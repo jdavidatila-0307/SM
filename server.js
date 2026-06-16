@@ -847,7 +847,7 @@ async function route(req, res, body) {
         const dec = rondaData.decisiones[eq.id];
         if (!dec) continue;
         // Si hay resultados de la ronda anterior, actualizar saldos iniciales
-        if (ultimosResultados) {
+             if (ultimosResultados) {
           const resAnt = ultimosResultados[eq.id];
           if (resAnt) {
             dec.cajaInicial = Math.max(0, resAnt.cajaFinal);
@@ -857,8 +857,10 @@ async function route(req, res, body) {
             dec.vendedoresIniciales = Math.max(1, resAnt.vendedoresFinales);
             dec.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
             dec.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
+            // ★ NUEVO: heredar el costo unitario de la ronda anterior
+            dec.costoUnitarioAnterior = resAnt.costoUnitario || 0;
           }
-        }
+        } 
         decisiones.push({ ...dec });
       }
 

@@ -268,7 +268,7 @@ async function ensureRonda(simulacionId, n, ownerId = null) {
             nuevaDec.innovacion = false; nuevaDec.tipoInnovacion = ''; nuevaDec.montoInnovacion = 0;
             nuevaDec.tipoInvestigacion = 'No';
             const resPrev = prevRonda.resultados[eq.id];
-            if (resPrev) {
+             if (resPrev) {
               nuevaDec.cajaInicial          = Math.max(0, resPrev.cajaFinal);
               nuevaDec.cxcInicial           = Math.max(0, resPrev.cxcFinal);
               nuevaDec.deudaInicial         = Math.max(0, resPrev.deudaFinal);
@@ -276,6 +276,8 @@ async function ensureRonda(simulacionId, n, ownerId = null) {
               nuevaDec.vendedoresIniciales  = Math.max(1, resPrev.vendedoresFinales);
               nuevaDec.activosFijosIniciales= Math.max(0, resPrev.activosFijosNetos || 78000);
               nuevaDec.resultadoAcumuladoAnterior = resPrev.resultadoAcumulado;
+              // ★ NUEVO: heredar el costo unitario de la ronda anterior
+              nuevaDec.costoUnitarioAnterior = resPrev.costoUnitario || 0;
             }
             rondaBase.decisiones[eq.id] = nuevaDec;
           } else {

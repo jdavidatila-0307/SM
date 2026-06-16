@@ -241,9 +241,13 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const comisiones  = roundBs(ventasBrutas * comisionPct);
   const ventasNetas = roundBs(ventasBrutas - comisiones);
 
-  // Costo de ventas
-  const costoVentas    = roundBs(ventasReales * costoUnitario);
-  const utilidadBruta  = roundBs(ventasNetas - costoVentas);
+   // Costo de ventas por diferencia de inventario (partida doble)
+  const invInicialValorizado = roundBs(
+    (d.inventarioInicial || 0) * (d.costoUnitarioAnterior || 0)
+  );
+  const produccionValorizada = roundBs((d.produccion || 0) * costoUnitario);
+  let costoVentas = roundBs(invInicialValorizado + produccionValorizada - invFinalValorizado);
+  if (costoVentas < 0) costoVentas = 0;   // seguridad, no debería ocurrir
 
   // Inventario final valorizado
   const invFinalValorizado = roundBs(inventarioFinal * costoUnitario);
