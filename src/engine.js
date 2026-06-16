@@ -241,18 +241,23 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const comisiones  = roundBs(ventasBrutas * comisionPct);
   const ventasNetas = roundBs(ventasBrutas - comisiones);
 
-  // Inventario final valorizado — DEBE declararse ANTES de costoVentas
-  const invFinalValorizado  = roundBs(inventarioFinal * costoUnitario);
-  const costoAlmacenamiento = roundBs(inventarioFinal * params.costoAlmacenamientoUnidad);
-
-  // Costo de ventas por diferencia de inventario (método perpetuo / partida doble)
-  // costoUnitarioAnterior debe propagarse desde el resultado de la ronda anterior
-  const invInicialValorizado = roundBs(
-    (d.inventarioInicial || 0) * (d.costoUnitarioAnterior || costoUnitario)
-  );
+  // Inventario final valorizado — método perpetuo con costo histórico
+  // El stock heredado mantiene su costo anterior; solo la producción nueva usa CU actual
+  const cuAnterior           = d.costoUnitarioAnterior || costoUnitario;
+  const invInicialValorizado = roundBs((d.inventarioInicial || 0) * cuAnterior);
   const produccionValorizada = roundBs((d.produccion || 0) * costoUnitario);
+  const costoAlmacenamiento  = roundBs(inventarioFinal * params.costoAlmacenamientoUnidad);
+
+  // Inventario final valorizado a costo histórico por capas (FIFO):
+  // primero queda el stock heredado (cuAnterior); el excedente, a CU actual
+  const unidadesViejas      = Math.min(inventarioFinal, d.inventarioInicial || 0);
+  const unidadesNuevas      = Math.max(0, inventarioFinal - unidadesViejas);
+  const invFinalValorizado  = roundBs(unidadesViejas * cuAnterior + unidadesNuevas * costoUnitario);
+
+  // Costo de ventas por identidad contable perpetua
+  // Inv.Inicial + Producción = Costo Ventas + Inv.Final  →  siempre cuadra
   let costoVentas = roundBs(invInicialValorizado + produccionValorizada - invFinalValorizado);
-  if (costoVentas < 0) costoVentas = 0;   // seguridad, no debería ocurrir
+  if (costoVentas < 0) costoVentas = 0;
 
   // Utilidad bruta — DEBE declararse antes de gastosOp y utilidadNeta
   const utilidadBruta = roundBs(ventasNetas - costoVentas);
