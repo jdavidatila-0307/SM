@@ -129,6 +129,7 @@
 
         <button class="nav-item" data-view="admin-resultados">📈 Resultados</button>
         <button class="nav-item" data-view="admin-creditos">🏦 Créditos</button>
+        <button class="nav-item" data-view="admin-posicionamiento">🗺️ Posicionamiento</button>
         <button class="nav-item" data-view="admin-mercado">🌍 Mercado</button>
 
         <!-- Separador: Parámetros del SimMkt -->
@@ -153,6 +154,12 @@
     <section class="view" id="admin-rondas"><div id="rondasContent"></div></section>
     <section class="view" id="admin-resultados"><div id="adminResultadosContent"></div></section>
     <section class="view" id="admin-creditos"><div id="adminCreditosContent"></div></section>
+    <section class="view" id="admin-posicionamiento">
+      <div id="posAdminSelector" class="ronda-selector"></div>
+      <div class="result-round-card" style="position:relative;height:520px;padding:12px">
+        <canvas id="posAdminChart"></canvas>
+      </div>
+    </section>
     <section class="view" id="admin-mercado"><div id="adminMercadoContent"></div></section>
     <section class="view" id="admin-afinidad"><div id="adminAfinidadContent"></div></section>
     <section class="view" id="admin-competencia"><div id="adminCompetenciaContent"></div></section>
@@ -184,6 +191,7 @@
       <button class="nav-item" data-view="eq-financiero">📊 Estados Financieros</button>
       <button class="nav-item" data-view="eq-resultados">💰 KPIs</button>
       <button class="nav-item" data-view="eq-creditos">🏦 Mis Créditos</button>
+      <button class="nav-item" data-view="eq-posicionamiento">🗺️ Posicionamiento</button>
       <button class="nav-item" data-view="eq-reportes">🔍 Investigación</button>
       <button class="nav-item" data-view="eq-manual">📘 Manual</button>
     </nav>
@@ -207,6 +215,12 @@
     <section class="view" id="eq-financiero"><div id="eq-financiero-nav" class="ronda-selector"></div><div id="eq-financiero-content"></div></section>
     <section class="view" id="eq-resultados"><div id="equipoResultadosContent"></div></section>
     <section class="view" id="eq-creditos"><div id="eq-creditos-content"></div></section>
+    <section class="view" id="eq-posicionamiento">
+      <div id="posEqSelector" class="ronda-selector"></div>
+      <div class="result-round-card" style="position:relative;height:520px;padding:12px">
+        <canvas id="posEqChart"></canvas>
+      </div>
+    </section>
     <section class="view" id="eq-reportes"><div id="reportesContent"></div></section>
     <section class="view" id="eq-manual"><div id="manualContent"></div></section>
   </main>

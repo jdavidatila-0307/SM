@@ -70,6 +70,7 @@ function setupNav(screenId) {
         'eq-hoja':'Hoja de Decisión', 'eq-financiero':'Estados Financieros',
         'eq-resultados':'KPIs', 'eq-creditos':'Mis Créditos', 'eq-reportes':'Investigación y Ranking',
         'admin-creditos':'Reporte de Créditos', 'admin-afinidad':'Matriz de Afinidad', 'admin-competencia':'Competencia Externa',
+        'admin-posicionamiento':'Mapa de Posicionamiento', 'eq-posicionamiento':'Mapa de Posicionamiento',
       };
       const tt = document.getElementById(screenId === 'screen-admin' ? 'adminTopTitle' : 'equipoTopTitle');
       if (tt) tt.textContent = titles[btn.dataset.view] || '';
@@ -78,11 +79,13 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'eq-financiero') loadEquipoFinanciero();
       if (btn.dataset.view === 'eq-resultados') loadEquipoResultados();
       if (btn.dataset.view === 'eq-creditos') loadEquipoCreditos();
+      if (btn.dataset.view === 'eq-posicionamiento') loadEquipoPosicionamiento();
       if (btn.dataset.view === 'eq-reportes') loadEquipoReportes();
       if (btn.dataset.view === 'eq-dashboard') loadEquipoDashboard();
       if (btn.dataset.view === 'admin-afinidad') loadAdminAfinidad();
       if (btn.dataset.view === 'admin-competencia') loadAdminCompetencia();
       if (btn.dataset.view === 'admin-creditos') loadAdminCreditos();
+      if (btn.dataset.view === 'admin-posicionamiento') loadAdminPosicionamiento();
       if (btn.dataset.view === 'admin-dashboard') loadAdminDashboard();
       if (btn.dataset.view === 'admin-equipos') loadAdminEquipos();
       if (btn.dataset.view === 'admin-rondas') loadAdminRondas();
@@ -2908,6 +2911,170 @@ async function loadAdminCreditos() {
 window.showAdminCreditoEquipo = (id) => {
   document.querySelectorAll('#adminCreditosContent .seg-tab').forEach(b => b.classList.toggle('active', b.dataset.eq===id));
   document.querySelectorAll('#adminCreditosContent .seg-panel').forEach(p => p.classList.toggle('active', p.id==='eqCredit_'+id));
+};
+
+// ═══════════════════════════════════════════════════════════
+//  Mapa de Posicionamiento Perceptual (precio vs calidad)
+// ═══════════════════════════════════════════════════════════
+const POS_SEG_COLORS = {
+  'Masivo popular':      '#6C63FF',
+  'Masivo aspiracional': '#4ECDC4',
+  'Funcional familiar':  '#FFD166',
+  'Cosmético':           '#FF6B9D',
+  'Dermatológico':       '#06D6A0',
+  'Natural':             '#83C341',
+  'Institucional':       '#F4A259',
+};
+const POS_SEG_FALLBACK = '#9AA0A6';   // segmentos personalizados fuera del catálogo
+
+function _posHexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;
+}
+
+// Mini-plugin: líneas de cuadrante en precio/calidad promedio + etiquetas
+function _posCuadrantesPlugin(avgP, avgQ){
+  return { id:'posCuadrantes', afterDraw(chart){
+    const {ctx, chartArea:a, scales} = chart;
+    if (!a || !scales.x || !scales.y) return;
+    const x = scales.x.getPixelForValue(avgP);
+    const y = scales.y.getPixelForValue(avgQ);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(150,150,150,.45)';
+    ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom);
+    ctx.moveTo(a.left, y); ctx.lineTo(a.right, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(120,120,120,.6)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Relación calidad-precio', a.left+8, a.top+16);
+    ctx.fillText('Liderazgo en costos',     a.left+8, a.bottom-8);
+    ctx.textAlign = 'right';
+    ctx.fillText('Diferenciación premium',  a.right-8, a.top+16);
+    ctx.fillText('Zona de riesgo',          a.right-8, a.bottom-8);
+    ctx.restore();
+  }};
+}
+
+// puntos: [{ esYo, label, precioVenta, calidad, shareReal, atractivo, segmento }]
+function renderPosicionamiento(canvasId, puntos, { anonimo }){
+  window._posCharts = window._posCharts || {};
+  if (window._posCharts[canvasId]) window._posCharts[canvasId].destroy();
+  if (!puntos.length) return;
+
+  const avgP = puntos.reduce((s,p)=>s+(p.precioVenta||0),0) / puntos.length;
+  const avgQ = puntos.reduce((s,p)=>s+(p.calidad||0),0)     / puntos.length;
+
+  // Un dataset por segmento → leyenda = segmentos, color por segmento
+  const segs = [...new Set(puntos.map(p=>p.segmento))];
+  const datasets = segs.map(seg => {
+    const base = POS_SEG_COLORS[seg] || POS_SEG_FALLBACK;
+    const ptos = puntos.filter(p=>p.segmento===seg);
+    return {
+      label: seg,
+      data: ptos.map(p => ({
+        x: p.precioVenta, y: p.calidad,
+        r: Math.max(6, Math.sqrt(Math.max(0, p.shareReal||0)) * 55),   // área ∝ share
+        _meta: p,
+      })),
+      backgroundColor: ptos.map(p => _posHexA(base, (anonimo && !p.esYo) ? 0.28 : 0.75)),
+      borderColor:     ptos.map(p => (anonimo && p.esYo) ? '#ffffff' : base),
+      borderWidth:     ptos.map(p => (anonimo && p.esYo) ? 3 : 1),
+    };
+  });
+
+  window._posCharts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bubble',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { title:{display:true, text:'Precio (Bs)'}, min:0 },
+        y: { title:{display:true, text:'Calidad (1–10)'}, min:0, max:10 },
+      },
+      plugins: {
+        legend: { position:'bottom' },
+        tooltip: { callbacks: { label: (ctx) => {
+          const m = ctx.raw._meta;
+          return [ m.label,
+                   `Precio: Bs ${m.precioVenta}`,
+                   `Calidad: ${m.calidad}`,
+                   `Share: ${((m.shareReal||0)*100).toFixed(1)}%`,
+                   `Atractivo: ${(m.atractivo||0).toFixed(1)}` ];
+        }}},
+      },
+    },
+    plugins: [ _posCuadrantesPlugin(avgP, avgQ) ],
+  });
+}
+
+// ── Posicionamiento Admin (nombres reales, usa /admin/resultados/:n) ──
+async function loadAdminPosicionamiento(){
+  if (!requireSimSelected('posAdminSelector')) return;
+  const sel = document.getElementById('posAdminSelector');
+  try {
+    const hist = await api('GET','/admin/historial');
+    const sims = hist.filter(h=>h.estado==='simulated');
+    if (!sims.length){
+      sel.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><p>Sin rondas simuladas aún.</p></div>`;
+      return;
+    }
+    const data = {};
+    for (const h of sims){
+      try { const r = await api('GET', `/admin/resultados/${h.ronda}`); data[h.ronda] = r.resultados || []; } catch {}
+    }
+    window._posAdmin = data;
+    const rondas = Object.keys(data).map(Number).sort((a,b)=>a-b);
+    const latest = rondas[rondas.length-1];
+    sel.innerHTML = rondas.map(n =>
+      `<button class="ronda-btn simulated" onclick="mostrarPosAdmin(${n})">Ronda ${n}</button>`).join('');
+    mostrarPosAdmin(latest);
+  } catch(e){
+    sel.innerHTML = `<p style="color:var(--accent4);padding:16px">${e.message}</p>`;
+  }
+}
+window.mostrarPosAdmin = (n) => {
+  document.querySelectorAll('#posAdminSelector .ronda-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.textContent.replace(/\D+/g,''))===n));
+  const resultados = (window._posAdmin||{})[n] || [];
+  const puntos = resultados.map(r => ({ esYo:false, label:r.equipoNombre||r.equipo,
+    precioVenta:r.precioVenta, calidad:r.calidad, shareReal:r.shareReal,
+    atractivo:r.atractivo, segmento:r.segmento }));
+  renderPosicionamiento('posAdminChart', puntos, { anonimo:false });
+};
+
+// ── Posicionamiento Equipo (anonimizado vía /api/posicionamiento/:n) ──
+async function loadEquipoPosicionamiento(){
+  const sel = document.getElementById('posEqSelector');
+  if (!sel) return;
+  try {
+    const data = await api('GET','/api/resultados');
+    if (!data.historial?.length){
+      sel.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><p>Sin rondas simuladas aún.</p></div>`;
+      return;
+    }
+    const rondas = data.historial.map(h=>h.ronda);
+    const latest = rondas[rondas.length-1];
+    sel.innerHTML = rondas.map(n =>
+      `<button class="ronda-btn simulated" onclick="mostrarPosEq(${n})">Ronda ${n}</button>`).join('');
+    mostrarPosEq(latest);
+  } catch(e){
+    sel.innerHTML = `<p style="color:var(--accent4);padding:16px">${e.message}</p>`;
+  }
+}
+window.mostrarPosEq = async (n) => {
+  document.querySelectorAll('#posEqSelector .ronda-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.textContent.replace(/\D+/g,''))===n));
+  try {
+    const data = await api('GET', `/api/posicionamiento/${n}`);
+    renderPosicionamiento('posEqChart', data.puntos || [], { anonimo:true });
+  } catch(e){
+    document.getElementById('posEqSelector').insertAdjacentHTML('beforeend',
+      `<span style="color:var(--accent4);padding:8px">${e.message}</span>`);
+  }
 };
 
 

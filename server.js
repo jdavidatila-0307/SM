@@ -1098,6 +1098,37 @@ async function route(req, res, body) {
     return send(res, 200, { ronda: n, ranking, stats: { ebitPromedio: ebits.reduce((a,b)=>a+b,0)/ebits.length, totalEquipos: ebits.length } });
   }
 
+  if (url.match(/^\/api\/posicionamiento\/\d+$/) && method === 'GET') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulación' });
+    const n = parseInt(url.split('/')[3]);
+    const ronda = await storage.getRonda(sim.id, n);
+    if (!ronda || ronda.estado !== 'simulated') return send(res, 404, { error: 'Sin resultados' });
+    // TODO futuro: condicionar este endpoint a una inversión en
+    // investigación de mercado (campo tipoInvestigacion o nuevo campo
+    // inversionInvestigacionMercado), siguiendo el modelo de Markstrat
+    // donde la información competitiva tiene un costo.
+    // Orden estable por id → etiqueta "Competidor N" consistente entre rondas.
+    // Nunca se expone r.equipo (id real) de otros equipos al estudiante.
+    const resultados = Object.values(ronda.resultados)
+      .sort((a,b) => String(a.equipo).localeCompare(String(b.equipo)));
+    let comp = 0;
+    const puntos = resultados.map(r => {
+      const esYo = r.equipo === s.userId;
+      if (!esYo) comp++;
+      return {
+        esYo,
+        label: esYo ? 'Tu equipo' : `Competidor ${comp}`,
+        precioVenta: r.precioVenta,
+        calidad:     r.calidad,
+        shareReal:   r.shareReal,
+        atractivo:   r.atractivo,
+        segmento:    r.segmento,
+      };
+    });
+    return send(res, 200, { ronda: n, puntos });
+  }
+
   return null;
 }
 
