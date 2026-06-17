@@ -248,13 +248,16 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const produccionValorizada = roundBs((d.produccion || 0) * costoUnitario);
   const costoAlmacenamiento  = roundBs(inventarioFinal * params.costoAlmacenamientoUnidad);
 
-  // Inventario final valorizado por identidad contable perpetua
-  // invFinal = invInicial + produccion - costoVentas
-  // costoVentas = ventas × costoUnitario (método directo, más simple y exacto)
-  const costoVentasDirecto  = roundBs(ventasReales * costoUnitario);
-  const invFinalValorizado  = roundBs(Math.max(0, invInicialValorizado + produccionValorizada - costoVentasDirecto));
-  let costoVentas = costoVentasDirecto;
+  // Costo de ventas FIFO: primero se agotan unidades heredadas a su costo histórico,
+  // luego unidades de producción nueva al costoUnitario actual
+  const unidadesIniciales   = d.inventarioInicial || 0;
+  const unidadesVendidasViejas = Math.min(ventasReales, unidadesIniciales);
+  const unidadesVendidasNuevas = Math.max(0, ventasReales - unidadesVendidasViejas);
+  const costoVentasViejo    = roundBs(unidadesVendidasViejas * (invInicialValorizado / Math.max(1, unidadesIniciales)));
+  const costoVentasNuevo    = roundBs(unidadesVendidasNuevas * costoUnitario);
+  let costoVentas           = roundBs(costoVentasViejo + costoVentasNuevo);
   if (costoVentas < 0) costoVentas = 0;
+  const invFinalValorizado  = roundBs(Math.max(0, invInicialValorizado + produccionValorizada - costoVentas));
 
   // Utilidad bruta — DEBE declararse antes de gastosOp y utilidadNeta
   const utilidadBruta = roundBs(ventasNetas - costoVentas);
