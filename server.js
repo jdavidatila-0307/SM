@@ -862,6 +862,8 @@ async function route(req, res, body) {
             dec.costoUnitarioAnterior = resAnt.costoUnitario || 0;
             // ★ NUEVO: propagar el inventario inicial ya valorizado desde la ronda anterior
             dec.invInicialValorizado = resAnt.invFinalValorizado;
+            // ★ NUEVO: propagar el tipo de préstamo para aplicar la tasa histórica
+            dec.tipoPrestamoPrevio = resAnt.tipoPrestamo || 'Inversión';
           }
         } 
         decisiones.push({ ...dec });
@@ -918,6 +920,7 @@ async function route(req, res, body) {
           decSig.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
           decSig.costoUnitarioAnterior = resAnt.costoUnitario || 0;
           decSig.invInicialValorizado = resAnt.invFinalValorizado;
+          decSig.tipoPrestamoPrevio = resAnt.tipoPrestamo || 'Inversión';
           propagados++;
         }
         if (propagados > 0) {

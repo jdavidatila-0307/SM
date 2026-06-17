@@ -266,12 +266,26 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const gastoInnovacion = d.innovacion ? (d.montoInnovacion || 0) : 0;
 
   // Financiamiento
-  const montoP = d.montoPrestamo || 0;
-  const tipoP  = d.tipoPrestamo  || 'Ninguno';
+  const montoP         = d.montoPrestamo || 0;
+  const tipoP          = d.tipoPrestamo  || 'Ninguno';
+  const deudaExistente = d.deudaInicial  || 0;
   let interesesPrestamo = 0, comisionApertura = 0;
+
+  // Intereses sobre deuda existente usando la tasa del préstamo original propagada
+  if (deudaExistente > 0) {
+    const tipoPrevio    = d.tipoPrestamoPrevio || 'Inversión';
+    const tasaExistente = tipoPrevio === 'Operativo'
+      ? params.tasaPrestamoOperativo
+      : params.tasaPrestamoInversion;
+    interesesPrestamo = roundBs(deudaExistente * tasaExistente);
+  }
+
+  // Intereses y comisión sobre nuevo préstamo del trimestre
   if (tipoP !== 'Ninguno' && montoP > 0) {
-    const tasa = tipoP === 'Operativo' ? params.tasaPrestamoOperativo : params.tasaPrestamoInversion;
-    interesesPrestamo = roundBs(montoP * tasa);
+    const tasa = tipoP === 'Operativo'
+      ? params.tasaPrestamoOperativo
+      : params.tasaPrestamoInversion;
+    interesesPrestamo = roundBs(interesesPrestamo + montoP * tasa);
     comisionApertura  = roundBs(montoP * params.comisionAperturaPrestamo);
   }
 
@@ -384,7 +398,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     // Para propagación
     inventarioFinal, vendedoresFinales: d.vendedoresFinales || d.vendedoresIniciales,
     activosFijosNetos: afNetos,
-    costoUnitario, comisionPct,
+    costoUnitario, comisionPct, tipoPrestamo: tipoP,
   };
 }
 

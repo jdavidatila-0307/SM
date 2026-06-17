@@ -280,6 +280,8 @@ async function ensureRonda(simulacionId, n, ownerId = null) {
               nuevaDec.costoUnitarioAnterior = resPrev.costoUnitario || 0;
               // ★ NUEVO: propagar el inventario inicial ya valorizado desde la ronda anterior
               nuevaDec.invInicialValorizado = resPrev.invFinalValorizado;
+              // ★ NUEVO: propagar el tipo de préstamo para aplicar la tasa histórica
+              nuevaDec.tipoPrestamoPrevio = resPrev.tipoPrestamo || 'Inversión';
             }
             rondaBase.decisiones[eq.id] = nuevaDec;
           } else {
