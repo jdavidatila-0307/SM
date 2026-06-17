@@ -4,6 +4,9 @@
  * cfg = { params, tiposProducto, canales, segmentos, afinidadMatrix, competenciaExterna }
  */
 
+// Matriz de afinidad medio×segmento (constante de código, no config editable)
+const { AFINIDAD_MEDIO_SEGMENTO } = require('./constants');
+
 // ── Helpers ────────────────────────────────────────────────────
 function avg(a, b) { return (a + b) / 2; }
 function roundBs(x) { return Math.round(x * 100) / 100; }
@@ -112,16 +115,28 @@ function calcularVendedores(d, params) {
 }
 
 // ── Paso 2: Gasto total de marketing ──────────────────────────
-// Marketing efectivo (para atractivo) = publicidad + promocion + eventos + redes + rrpp
-// Gasto total = lo anterior + costoVendedores
-function calcularMarketing(d, costoVendedores) {
-  const mktEfectivo =
-    (d.publicidad        || 0) +
-    (d.promocion         || 0) +
-    (d.eventos           || 0) +
-    (d.marketingRedes    || 0) +
-    (d.relacionesPublicas|| 0);
-  const gastoTotalMarketing = mktEfectivo + costoVendedores;
+// Dos magnitudes SEPARADAS (ya no comparten unidad):
+//  - mktEfectivo: puntos de atractivo. Por canal:
+//      saturacionCanal = 1 - exp(-gastoCanal / umbralSaturacionMkt)
+//      aporteCanal     = maxAportePublicidad * saturacionCanal * afinidad(canal, segmento)
+//    mktEfectivo = suma de los 5 aportes. Alimenta el atractivo competitivo.
+//  - gastoTotalMarketing: Bs reales = suma cruda de los 5 canales + costoVendedores.
+//    Alimenta el P&L / caja. costoVendedores NO es un canal: queda fuera de
+//    saturación/afinidad y solo suma al costo.
+function calcularMarketing(d, costoVendedores, segmentoObjetivo, params) {
+  const canalesComunicacion = ['publicidad', 'promocion', 'eventos', 'marketingRedes', 'relacionesPublicas'];
+
+  let mktEfectivo = 0;        // puntos de atractivo
+  let gastoComunicacion = 0;  // Bs reales gastados en los 5 canales
+  for (const canal of canalesComunicacion) {
+    const gastoCanal = d[canal] || 0;
+    gastoComunicacion += gastoCanal;
+    const saturacionCanal = 1 - Math.exp(-gastoCanal / params.umbralSaturacionMkt);
+    const afinidad = AFINIDAD_MEDIO_SEGMENTO[canal]?.[segmentoObjetivo] ?? 1.0;
+    mktEfectivo += params.maxAportePublicidad * saturacionCanal * afinidad;
+  }
+
+  const gastoTotalMarketing = gastoComunicacion + costoVendedores;
   return { mktEfectivo, gastoTotalMarketing };
 }
 
@@ -154,7 +169,8 @@ function calcularCostoUnitario(d, tiposProducto, canales, params) {
 }
 
 // ── Paso 5: Atractivo competitivo ─────────────────────────────
-// A = afinidad + (0.8×calidad) + (0.0001×mktEfectivo) − (0.7×precio) + bonoCanal + impactoVendedores
+// A = afinidad + (0.8×calidad) + mktEfectivo − (0.7×precio) + bonoCanal + impactoVendedores
+// mktEfectivo ya viene en escala de puntos (saturación × afinidad × maxAporte por canal).
 function calcularAtractivo(d, segmento, afinidadMatrix, canales, vendedoresFinales) {
   const afinidad = (afinidadMatrix[d.producto]?.[segmento.idx] ?? 0);
 
@@ -182,7 +198,7 @@ function calcularAtractivo(d, segmento, afinidadMatrix, canales, vendedoresFinal
   // Un producto que genera desutilidad neta simplemente no es considerado.
   let atractivo = afinidad
     + 0.8 * (d.calidad || 5)
-    + 0.0001 * (d.gastoTotalMarketing || d.mktEfectivo || 0)
+    + (d.mktEfectivo || 0)
     - 0.7 * (d.precioVenta || 0)
     + bonoCanal
     + impactoVendedores
@@ -438,7 +454,7 @@ function ejecutarSimulador(decisiones, cfg) {
     const { vendedoresFinales, costoVendedores } = calcularVendedores(d, params);
     vendedoresPorEquipo[d.equipo]       = vendedoresFinales;
     costoVendedoresPorEquipo[d.equipo]  = costoVendedores;
-    const { mktEfectivo, gastoTotalMarketing } = calcularMarketing(d, costoVendedores);
+    const { mktEfectivo, gastoTotalMarketing } = calcularMarketing(d, costoVendedores, d.segmentoObjetivo, params);
     mktEfectivoPorEquipo[d.equipo] = mktEfectivo;
     // Inyectar en decisión para que calcularAtractivo lo use
     d.mktEfectivo         = mktEfectivo;
@@ -534,8 +550,9 @@ function calcularPreSimulacion(decisiones, cfg) {
       (d.contratarVendedores || 0) * params.costoContratacionVendedor +
       (d.despedirVendedores  || 0) * params.costoDespidoVendedor;
     d.costoVendedores     = costoVend;
-    d.mktEfectivo         = (d.publicidad||0)+(d.promocion||0)+(d.eventos||0)+(d.marketingRedes||0)+(d.relacionesPublicas||0);
-    d.gastoTotalMarketing = d.mktEfectivo + costoVend;
+    const { mktEfectivo, gastoTotalMarketing } = calcularMarketing(d, costoVend, d.segmentoObjetivo, params);
+    d.mktEfectivo         = mktEfectivo;
+    d.gastoTotalMarketing = gastoTotalMarketing;
     d.vendedoresFinales   = vf;
   });
 

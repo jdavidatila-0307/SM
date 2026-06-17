@@ -51,6 +51,10 @@ const PARAMS = {
   // Innovación
   factorInnovacionProducto:   0.333,  // fracción del (monto/unid) que incrementa CU
   factorInnovacionProceso:    0.333,  // fracción que REDUCE CU
+
+  // Marketing — saturación y aporte al atractivo
+  umbralSaturacionMkt:        8_000,  // Bs por canal donde la saturación tiende a 1
+  maxAportePublicidad:            5,  // aporte máximo de un canal saturado al atractivo (puntos)
 };
 
 // ── 2. Tipos de producto ──────────────────────────────────────
@@ -97,6 +101,17 @@ const AFINIDAD_MATRIX = {
   'Institucional': [      -2,      -2,       0,       -2,    -2,    -2,    3  ],
 };
 
+// ── 5b. Matriz de afinidad medio (canal de comunicación) × segmento ──
+// Pondera cuánto pesa cada canal de comunicación según el segmento objetivo.
+// Lanzamiento NEUTRO: todos los valores en 1.0 (sin efecto diferencial todavía).
+const AFINIDAD_MEDIO_SEGMENTO = {
+  'publicidad':          { 'Masivo popular': 1.0, 'Masivo aspiracional': 1.0, 'Funcional familiar': 1.0, 'Cosmético': 1.0, 'Dermatológico': 1.0, 'Natural': 1.0, 'Institucional': 1.0 },
+  'promocion':           { 'Masivo popular': 1.0, 'Masivo aspiracional': 1.0, 'Funcional familiar': 1.0, 'Cosmético': 1.0, 'Dermatológico': 1.0, 'Natural': 1.0, 'Institucional': 1.0 },
+  'eventos':             { 'Masivo popular': 1.0, 'Masivo aspiracional': 1.0, 'Funcional familiar': 1.0, 'Cosmético': 1.0, 'Dermatológico': 1.0, 'Natural': 1.0, 'Institucional': 1.0 },
+  'marketingRedes':      { 'Masivo popular': 1.0, 'Masivo aspiracional': 1.0, 'Funcional familiar': 1.0, 'Cosmético': 1.0, 'Dermatológico': 1.0, 'Natural': 1.0, 'Institucional': 1.0 },
+  'relacionesPublicas':  { 'Masivo popular': 1.0, 'Masivo aspiracional': 1.0, 'Funcional familiar': 1.0, 'Cosmético': 1.0, 'Dermatológico': 1.0, 'Natural': 1.0, 'Institucional': 1.0 },
+};
+
 // ── 6. Competencia externa por segmento ──────────────────────
 const COMPETENCIA_EXTERNA = [
   { segmento: 'Masivo popular',    nombre: 'Contrabando genérico',  precio: 2.80, calidad: 3, marketing: 0,     participacionRef: 0.35 },
@@ -104,4 +119,4 @@ const COMPETENCIA_EXTERNA = [
   { segmento: 'Cosmético',         nombre: 'Marca líder cosmética', precio: 7.80, calidad: 8, marketing: 9_000, participacionRef: 0.40 },
 ];
 
-module.exports = { PARAMS, TIPOS_PRODUCTO, CANALES, SEGMENTOS, AFINIDAD_MATRIX, COMPETENCIA_EXTERNA };
+module.exports = { PARAMS, TIPOS_PRODUCTO, CANALES, SEGMENTOS, AFINIDAD_MATRIX, AFINIDAD_MEDIO_SEGMENTO, COMPETENCIA_EXTERNA };
