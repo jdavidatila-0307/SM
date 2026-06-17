@@ -268,7 +268,11 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   // Financiamiento
   const montoP         = d.montoPrestamo || 0;
   const tipoP          = d.tipoPrestamo  || 'Ninguno';
-  const deudaExistente = d.deudaInicial  || 0;
+  // Solo el principal de préstamos (sin sobregiro heredado) devenga intereses.
+  // Fallback a deudaInicial para decisiones legadas sin el campo separado.
+  const deudaExistente = (d.deudaPrestamosInicial != null)
+    ? d.deudaPrestamosInicial
+    : (d.deudaInicial || 0);
   let interesesPrestamo = 0, comisionApertura = 0;
 
   // Intereses sobre deuda existente usando la tasa del préstamo original propagada
@@ -352,6 +356,9 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const amortizacion = d.amortizacion || 0;
   const deudaPrestamos = roundBs(Math.max(0, (d.deudaInicial || 0) + ingresoPrestamo - amortizacion));
   const deudaFinal = roundBs(deudaPrestamos + sobregiro + interesSobregiro);
+  // Principal de préstamos SOLO (sin sobregiro heredado) — se propaga para
+  // calcular intereses históricos sin doble penalizar el sobregiro
+  const deudaPrestamosFinal = roundBs(Math.max(0, deudaExistente + ingresoPrestamo - amortizacion));
 
   // Activos fijos netos
   const afNetos = roundBs((d.activosFijosIniciales || params.activosFijosIniciales) - params.depreciacionTrimestral);
@@ -392,13 +399,14 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
 
     // Balance
     cxcFinal, invFinalValorizado, afNetos,
-    totalActivos, deudaFinal, totalPasivos,
+    totalActivos, deudaFinal, deudaPrestamosFinal, totalPasivos,
     capitalContable, resultadoAcumulado, patrimonio,
 
     // Para propagación
     inventarioFinal, vendedoresFinales: d.vendedoresFinales || d.vendedoresIniciales,
     activosFijosNetos: afNetos,
-    costoUnitario, comisionPct, tipoPrestamo: tipoP,
+    costoUnitario, comisionPct,
+    tipoPrestamo: tipoP !== 'Ninguno' ? tipoP : (d.tipoPrestamoPrevio || 'Inversión'),
   };
 }
 

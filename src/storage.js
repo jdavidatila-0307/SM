@@ -272,6 +272,7 @@ async function ensureRonda(simulacionId, n, ownerId = null) {
               nuevaDec.cajaInicial          = Math.max(0, resPrev.cajaFinal);
               nuevaDec.cxcInicial           = Math.max(0, resPrev.cxcFinal);
               nuevaDec.deudaInicial         = Math.max(0, resPrev.deudaFinal);
+              nuevaDec.deudaPrestamosInicial = Math.max(0, resPrev.deudaPrestamosFinal || 0);
               nuevaDec.inventarioInicial    = Math.max(0, resPrev.inventarioFinal);
               nuevaDec.vendedoresIniciales  = Math.max(1, resPrev.vendedoresFinales);
               nuevaDec.activosFijosIniciales= Math.max(0, resPrev.activosFijosNetos || 78000);
