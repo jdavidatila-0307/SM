@@ -673,7 +673,12 @@ async function route(req, res, body) {
     equipos.forEach(eq => { eqMap[eq.id] = eq.nombre; });
     const resultados = Object.values(ronda.resultados).map(r => ({...r, equipoNombre: eqMap[r.equipo]||r.equipo}));
     return send(res, 200, { ronda: n, estado: ronda.estado, ejecutadaAt: ronda.ejecutadaAt,
-      resultados, mercadoSegmentos: ronda.mercadoSegmentos, dashboard: ronda.dashboard });
+      resultados, mercadoSegmentos: ronda.mercadoSegmentos, dashboard: ronda.dashboard,
+      tasas: {
+        operativo: sim.parametros.tasaPrestamoOperativo,
+        inversion: sim.parametros.tasaPrestamoInversion,
+        sobregiro: sim.parametros.tasaSobregiro,
+      } });
   }
 
   if (url === '/admin/historial' && method === 'GET') {

@@ -2826,6 +2826,9 @@ async function loadAdminCreditos() {
       } catch {}
     }
 
+    // Tasas reales (mismas para todas las rondas)
+    const tasas = Object.values(rondaData)[0]?.tasas || {};
+
     // Build per-equipo credit summary
     const tabs = equipos.map((eq,i) => `<button class="seg-tab ${i===0?'active':''}" data-eq="${eq.id}" onclick="showAdminCreditoEquipo('${eq.id}')">${eq.nombre}</button>`).join('');
 
@@ -2835,60 +2838,64 @@ async function loadAdminCreditos() {
         return res ? { ronda: parseInt(ronda), resultado: res } : null;
       }).filter(Boolean).sort((a,b)=>a.ronda-b.ronda);
 
-      // Reconstruct decisions from rounds (resultados have key fields)
-      const prestamos = [];
-      historialEquipo.forEach(({ronda, resultado: r}) => {
-        if (r.ingresoPrestamo > 0) {
-          const esSobregiro = r.sobregiro > 0 && r.ingresoPrestamo === r.sobregiro;
-          if (!esSobregiro) {
-            const plazo = r.plazoPrestamo || 2;
-            prestamos.push({ rondaOrigen:ronda, tipo:'Préstamo', monto:r.ingresoPrestamo, tasa: r.interesesPrestamo/r.ingresoPrestamo||0.04, plazo, comision:r.comisionApertura||0 });
-          }
-        }
-        if (r.sobregiro > 0) {
-          prestamos.push({ rondaOrigen:ronda, tipo:'Sobregiro', monto:r.sobregiro, tasa:0.06, plazo:1, comision:0, interes:r.interesSobregiro });
-        }
-      });
+      // Libro de deuda por ronda con datos REALES del motor (sin cronograma teórico).
+      // deudaInicial se reconstruye como el deudaFinal de la ronda anterior.
+      let deudaPrev = 0;
+      const filas = historialEquipo.map(({ronda, resultado: r}) => {
+        const deudaInicial = deudaPrev;
+        const ingreso      = r.ingresoPrestamo || 0;
+        const amortizacion = r.pagoAmortizacion || 0;    // amortización real
+        const interes      = r.interesesPrestamo || 0;
+        const interesSob   = r.interesSobregiro || 0;
+        const sobregiro    = r.sobregiro || 0;
+        const saldoFinal   = r.deudaFinal ?? 0;
+        // tipo ya resuelto por el backend (préstamo nuevo o heredado)
+        const tipoVigente  = r.tipoPrestamo || 'Inversión';
+        const tasaAplicada = tipoVigente === 'Operativo'
+          ? (tasas.operativo ?? 0) : (tasas.inversion ?? 0);
+        const amortizo     = amortizacion > 0;
+        deudaPrev = saldoFinal;
+        return { ronda, deudaInicial, ingreso, amortizacion, interes, interesSob,
+                 sobregiro, saldoFinal, tasaAplicada, amortizo };
+      }).filter(f => f.deudaInicial > 0 || f.ingreso > 0 || f.saldoFinal > 0 || f.sobregiro > 0);
 
-      if (!prestamos.length) {
+      if (!filas.length) {
         return `<div class="seg-panel ${i===0?'active':''}" id="eqCredit_${eq.id}">
           <div class="empty-state"><div class="empty-icon">✅</div><p>Sin préstamos para ${eq.nombre}.</p></div>
         </div>`;
       }
 
-      const cards = prestamos.map(p => {
-        const currentR = Math.max(...Object.keys(rondaData).map(Number));
-        const intTotal = Math.round(p.monto * (p.tasa||0) * p.plazo * 100)/100;
-        const totalPagar = Math.round((p.monto + intTotal + p.comision)*100)/100;
-        const rows = Array.from({length:p.plazo},(_,j)=>{
-          const ronda = p.rondaOrigen + j + 1;
-          const pagado = ronda <= currentR;
-          return `<tr style="${pagado?'color:var(--text3)':''}">
-            <td style="text-align:center;font-family:var(--font-mono)">${ronda}</td>
-            <td class="num">${fmt.bs(Math.round(p.monto/p.plazo*100)/100)}</td>
-            <td class="num">${fmt.bs(Math.round(p.monto*(p.tasa||0)*100)/100)}</td>
-            <td class="num">${fmt.bs(Math.round((p.monto/p.plazo + p.monto*(p.tasa||0))*100)/100)}</td>
-            <td style="text-align:center">${pagado?'<span class="badge badge-ok">✓</span>':'<span class="badge badge-pending">⏳</span>'}</td>
-          </tr>`;
-        }).join('');
-        return `<div class="result-round-card" style="margin-bottom:12px">
-          <div class="result-round-header"><h3>${p.tipo} — Ronda ${p.rondaOrigen}</h3>
-            <span style="font-family:var(--font-mono);font-size:.72rem;color:var(--text3)">${fmt.bs(p.monto)} · ${fmt.pct(p.tasa||0)} trim.</span></div>
-          <div class="table-wrap" style="border-radius:0">
-            <table><thead><tr><th>Ronda pago</th><th>Capital</th><th>Interés</th><th>Cuota total</th><th>Estado</th></tr></thead>
-            <tbody>${rows}</tbody></table>
-          </div>
-          <div style="padding:8px 14px;font-size:.78rem;color:var(--text3)">Total a pagar: <strong>${fmt.bs(totalPagar)}</strong> | Comisión apertura: <strong>${fmt.bs(p.comision)}</strong></div>
-        </div>`;
-      }).join('');
+      const rows = filas.map(f => `
+        <tr>
+          <td style="text-align:center;font-family:var(--font-mono)">${f.ronda}</td>
+          <td class="num">${fmt.bs(f.deudaInicial)}</td>
+          <td class="num">${f.ingreso>0?fmt.bs(f.ingreso):'—'}</td>
+          <td class="num">${f.amortizacion>0?fmt.bs(f.amortizacion):'—'}</td>
+          <td class="num">${fmt.bs(f.interes)}${f.interes>0?` <span style="color:var(--text3);font-size:.8em">(${fmt.pct(f.tasaAplicada)})</span>`:''}</td>
+          <td class="num">${f.sobregiro>0?fmt.bs(f.sobregiro):'—'}</td>
+          <td class="num" style="font-weight:700">${fmt.bs(f.saldoFinal)}</td>
+          <td style="text-align:center">${f.amortizo ? '<span class="badge badge-ok">✓ Amortizó</span>' : '<span class="badge badge-pending">⏳ Sin pago</span>'}</td>
+        </tr>`).join('');
 
-      const ultimaDeuda = historialEquipo[historialEquipo.length-1]?.resultado?.deudaFinal || 0;
+      const ultimaDeuda     = historialEquipo[historialEquipo.length-1]?.resultado?.deudaFinal || 0;
+      const totalIntereses  = filas.reduce((s,f)=> s + f.interes + f.interesSob, 0);
+      const totalAmortizado = filas.reduce((s,f)=> s + f.amortizacion, 0);
+
       return `<div class="seg-panel ${i===0?'active':''}" id="eqCredit_${eq.id}">
         <div class="stat-grid" style="margin-bottom:16px">
-          <div class="stat-card"><div class="stat-label">Préstamos / Sobregiros</div><div class="stat-value" style="color:var(--accent2)">${prestamos.length}</div></div>
-          <div class="stat-card"><div class="stat-label">Deuda final última ronda</div><div class="stat-value" style="color:${ultimaDeuda>0?'var(--accent4)':'var(--accent5)'}">${fmt.bs(ultimaDeuda)}</div></div>
+          <div class="stat-card"><div class="stat-label">Deuda actual</div><div class="stat-value" style="color:${ultimaDeuda>0?'var(--accent4)':'var(--accent5)'}">${fmt.bs(ultimaDeuda)}</div></div>
+          <div class="stat-card"><div class="stat-label">Total amortizado</div><div class="stat-value" style="color:var(--accent2)">${fmt.bs(totalAmortizado)}</div></div>
+          <div class="stat-card"><div class="stat-label">Intereses pagados</div><div class="stat-value" style="color:var(--accent3)">${fmt.bs(Math.round(totalIntereses*100)/100)}</div></div>
         </div>
-        ${cards}
+        <div class="result-round-card">
+          <div class="result-round-header"><h3>💳 Libro de deuda por ronda — ${eq.nombre}</h3></div>
+          <div class="table-wrap" style="border-radius:0">
+            <table>
+              <thead><tr><th>Ronda</th><th>Deuda inicial</th><th>Nuevo préstamo</th><th>Amortización</th><th>Interés (tasa ef.)</th><th>Sobregiro</th><th>Saldo final</th><th>Estado</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
       </div>`;
     }).join('');
 
