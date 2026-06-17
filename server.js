@@ -1061,7 +1061,14 @@ async function route(req, res, body) {
       historial.push({ ronda:i, ejecutadaAt:r.ejecutadaAt, resultado,
         decision: r.decisiones?.[equipoId]||null, reportes: r.reportes?.[equipoId]||{} });
     }
-    return send(res, 200, { currentRound: sim.config.currentRound, roundState: sim.config.roundState, historial });
+    return send(res, 200, {
+      currentRound: sim.config.currentRound, roundState: sim.config.roundState, historial,
+      tasas: {
+        operativo: sim.parametros.tasaPrestamoOperativo,
+        inversion: sim.parametros.tasaPrestamoInversion,
+        sobregiro: sim.parametros.tasaSobregiro,
+      },
+    });
   }
 
   if (url.match(/^\/api\/reportes\/\d+$/) && method === 'GET') {
