@@ -54,7 +54,7 @@ const PARAMS = {
 
   // Marketing — saturación y aporte al atractivo
   umbralSaturacionMkt:        8_000,  // Bs por canal donde la saturación tiende a 1
-  maxAportePublicidad:            5,  // aporte máximo de un canal saturado al atractivo (puntos)
+  maxAportePublicidad:            2,  // aporte máximo de un canal saturado al atractivo (puntos)
 };
 
 // ── 2. Tipos de producto ──────────────────────────────────────
