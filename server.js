@@ -109,6 +109,17 @@ async function route(req, res, body) {
     return false;
   };
 
+  // ═══ VERSION (público — para verificar qué código corre en el deploy) ═══
+  if (url === '/version' && method === 'GET') {
+    const C = require('./src/constants');
+    return send(res, 200, {
+      commit: '3e62502',
+      umbralSaturacionMkt: C.PARAMS.umbralSaturacionMkt,
+      maxAportePublicidad: C.PARAMS.maxAportePublicidad,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   // ═══ AUTH ════════════════════════════════════════════════════
   if (url === '/auth/login' && method === 'POST') {
     const { id, password } = body;

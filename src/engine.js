@@ -126,14 +126,19 @@ function calcularVendedores(d, params) {
 function calcularMarketing(d, costoVendedores, segmentoObjetivo, params) {
   const canalesComunicacion = ['publicidad', 'promocion', 'eventos', 'marketingRedes', 'relacionesPublicas'];
 
+  // Fallback defensivo: simulaciones legadas pueden tener un `parametros` en BD
+  // sin estos campos (se agregaron después de su creación) → NaN sin el ??.
+  const umbral = params.umbralSaturacionMkt ?? 8000;
+  const techo  = params.maxAportePublicidad ?? 2;
+
   let mktEfectivo = 0;        // puntos de atractivo
   let gastoComunicacion = 0;  // Bs reales gastados en los 5 canales
   for (const canal of canalesComunicacion) {
     const gastoCanal = d[canal] || 0;
     gastoComunicacion += gastoCanal;
-    const saturacionCanal = 1 - Math.exp(-gastoCanal / params.umbralSaturacionMkt);
+    const saturacionCanal = 1 - Math.exp(-gastoCanal / umbral);
     const afinidad = AFINIDAD_MEDIO_SEGMENTO[canal]?.[segmentoObjetivo] ?? 1.0;
-    mktEfectivo += params.maxAportePublicidad * saturacionCanal * afinidad;
+    mktEfectivo += techo * saturacionCanal * afinidad;
   }
 
   const gastoTotalMarketing = gastoComunicacion + costoVendedores;
