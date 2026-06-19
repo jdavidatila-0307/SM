@@ -357,14 +357,22 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
 
   let cajaPreliminar = roundBs(cajaInicial + cobrosContado + ingresoPrestamo - totalPagos);
 
-  // Sobregiro automático si caja < 0
-  let sobregiro = 0, interesSobregiro = 0;
+  // ── Sobregiro: cuenta ACUMULADA, separada de la deuda de préstamos ──
+  // Ya no se funde en deudaPrestamos al pasar de ronda: se arrastra como cuenta
+  // propia y devenga su tasa (6%) sobre el TOTAL acumulado, no solo el nuevo.
+  // Interés SIMPLE (no capitaliza) y SIN repago automático: el excedente de caja
+  // no amortiza el acumulado — persiste hasta una amortización explícita futura.
+  const sobregiroAcumuladoAnterior = d.sobregiroAcumuladoInicial || 0;
+  let sobregiro = 0;                       // sobregiro NUEVO de esta ronda
   if (cajaPreliminar < 0) {
-    sobregiro        = roundBs(-cajaPreliminar);
-    interesSobregiro = roundBs(sobregiro * params.tasaSobregiro);
-    cajaPreliminar   = 0;
-    utilidadNeta     = roundBs(utilidadNeta - interesSobregiro);
-    gastosOp         = roundBs(gastosOp + interesSobregiro);
+    sobregiro      = roundBs(-cajaPreliminar);
+    cajaPreliminar = 0;
+  }
+  const sobregiroAcumulado = roundBs(sobregiroAcumuladoAnterior + sobregiro);
+  const interesSobregiro   = roundBs(sobregiroAcumulado * params.tasaSobregiro);
+  if (interesSobregiro > 0) {
+    utilidadNeta = roundBs(utilidadNeta - interesSobregiro);
+    gastosOp     = roundBs(gastosOp + interesSobregiro);
   }
   const cajaFinal = cajaPreliminar;
 
@@ -373,13 +381,12 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const cxcNoCobrObj = roundBs((d.cxcInicial || 0) - cxcCobroEsta);
   const cxcFinal     = roundBs(Math.max(0, cxcNoCobrObj) + cxcNuevo);
 
-  // Deuda final = préstamos + sobregiro (el interés del sobregiro va como pasivo separado)
+  // Deuda de préstamos (principal SOLO, sin sobregiro) — base limpia que se propaga
   const amortizacion = d.amortizacion || 0;
-  const deudaPrestamos = roundBs(Math.max(0, (d.deudaInicial || 0) + ingresoPrestamo - amortizacion));
-  const deudaFinal = roundBs(deudaPrestamos + sobregiro + interesSobregiro);
-  // Principal de préstamos SOLO (sin sobregiro heredado) — se propaga para
-  // calcular intereses históricos sin doble penalizar el sobregiro
-  const deudaPrestamosFinal = roundBs(Math.max(0, deudaExistente + ingresoPrestamo - amortizacion));
+  const deudaPrestamos = roundBs(Math.max(0, deudaExistente + ingresoPrestamo - amortizacion));
+  const deudaPrestamosFinal = deudaPrestamos;
+  // Deuda final = préstamos + sobregiro acumulado + su interés (pasivo, no caja)
+  const deudaFinal = roundBs(deudaPrestamos + sobregiroAcumulado + interesSobregiro);
 
   // Activos fijos netos
   const afNetos = roundBs((d.activosFijosIniciales || params.activosFijosIniciales) - params.depreciacionTrimestral);
@@ -416,7 +423,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     cajaInicial, cobrosContado, ingresoPrestamo,
     pagoProduccion, pagoMktTotal, pagoAdmin, pagoPlanta,
     pagoInnovacion, pagoAlmacen, pagoIntereses, pagoApertura, pagoAmortizacion,
-    totalPagos, sobregiro, cajaFinal,
+    totalPagos, sobregiro, sobregiroAcumulado, cajaFinal,
 
     // Balance
     cxcFinal, invFinalValorizado, afNetos,

@@ -871,6 +871,7 @@ async function route(req, res, body) {
             dec.cxcInicial = Math.max(0, resAnt.cxcFinal);
             dec.deudaInicial = Math.max(0, resAnt.deudaFinal);
             dec.deudaPrestamosInicial = Math.max(0, resAnt.deudaPrestamosFinal || 0);
+            dec.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
             dec.inventarioInicial = Math.max(0, resAnt.inventarioFinal);
             dec.vendedoresIniciales = Math.max(1, resAnt.vendedoresFinales);
             dec.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
@@ -932,6 +933,7 @@ async function route(req, res, body) {
           decSig.cxcInicial            = Math.max(0, resAnt.cxcFinal);
           decSig.deudaInicial          = Math.max(0, resAnt.deudaFinal);
           decSig.deudaPrestamosInicial = Math.max(0, resAnt.deudaPrestamosFinal || 0);
+          decSig.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
           decSig.inventarioInicial     = Math.max(0, resAnt.inventarioFinal);
           decSig.vendedoresIniciales   = Math.max(1, resAnt.vendedoresFinales);
           decSig.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
