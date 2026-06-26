@@ -1013,15 +1013,30 @@ async function route(req, res, body) {
       }, ownerId);
 
       // Verificación inmediata: sobregiroAcumulado (+ campos de deuda) por equipo.
+      // ── DEBUG TEMPORAL: internos completos del flujo para diagnosticar descuadre ──
       const verificacion = result.resultados.map(r => ({
         equipo:              r.equipo,
         equipoNombre:        r.equipoNombre,
-        sobregiroAcumulado:  r.sobregiroAcumulado,
+        // Flujo de caja
+        cajaInicial:         r.cajaInicial,
+        cobrosContado:       r.cobrosContado,
+        ingresoPrestamo:     r.ingresoPrestamo,
+        totalPagos:          r.totalPagos,
+        pagoAmortizacion:    r.pagoAmortizacion,
         sobregiro:           r.sobregiro,
+        cajaFinal:           r.cajaFinal,
+        // Deuda
+        interesesPrestamo:   r.interesesPrestamo,
         interesSobregiro:    r.interesSobregiro,
+        sobregiroAcumulado:  r.sobregiroAcumulado,
         deudaPrestamosFinal: r.deudaPrestamosFinal,
         deudaFinal:          r.deudaFinal,
-        interesesPrestamo:   r.interesesPrestamo,
+        // Balance
+        totalActivos:        r.totalActivos,
+        patrimonio:          r.patrimonio,
+        utilidadNeta:        r.utilidadNeta,
+        resultadoAcumulado:  r.resultadoAcumulado,
+        descuadre:           Math.round(((r.totalActivos||0) - (r.deudaFinal||0) - (r.patrimonio||0)) * 100) / 100,
       }));
       return send(res, 200, { ok: true, simId, ronda: n, equiposRecalculados: decisiones.length, verificacion });
     } catch (e) {
