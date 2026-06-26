@@ -953,6 +953,82 @@ async function route(req, res, body) {
     return send(res, 200, { ok: true, simId, rondasReparadas: resumen.length, detalle: resumen });
   }
 
+  // ─── TEMPORAL: recalcular UNA ronda aislada, sin re-sembrar desde la anterior ───
+  // Usado para fix quirúrgico de sobregiroAcumulado en VIVE5 R9. Lee las decisiones
+  // de la ronda TAL CUAL (preserva valores parchados manualmente en BD), recomputa
+  // solo esa ronda y NO toca currentRound, roundState ni otras rondas.
+  if (url === '/admin/recalcular-ronda' && method === 'POST') {
+    if (needAdmin()) return;
+    const { simId, ronda } = body;
+    if (!simId || ronda == null) return send(res, 400, { error: 'simId y ronda requeridos' });
+    const n = parseInt(ronda);
+    if (!Number.isInteger(n) || n < 1) return send(res, 400, { error: 'ronda inválida' });
+
+    const user = await storage.findUserById(s.userId);
+    const ownerId = user.rol !== 'superadmin' ? user.id : null;
+    const simToFix = await storage.getSimulacion(simId, ownerId);
+    if (!simToFix) return send(res, 404, { error: 'Simulación no encontrada o no autorizada' });
+
+    const rondaData = (simToFix.rondas || {})[String(n)];
+    if (!rondaData) return send(res, 404, { error: `Ronda ${n} no existe` });
+    if (rondaData.estado !== 'simulated') return send(res, 400, { error: `Ronda ${n} no está simulada (estado: ${rondaData.estado})` });
+
+    const simCfg = {
+      params: simToFix.parametros,
+      tiposProducto: simToFix.tipos_producto,
+      canales: simToFix.canales,
+      segmentos: simToFix.segmentos,
+      afinidadMatrix: simToFix.afinidad_matrix,
+      competenciaExterna: simToFix.competencia_externa
+    };
+
+    const equipos = simToFix.users || [];
+    // Decisiones TAL CUAL — sin el re-seed desde la ronda anterior que hace el bulk.
+    const decisiones = equipos
+      .filter(eq => rondaData.decisiones?.[eq.id])
+      .map(eq => ({ ...rondaData.decisiones[eq.id] }));
+    if (!decisiones.length) return send(res, 400, { error: 'Sin decisiones en esa ronda' });
+
+    try {
+      const result = ejecutarSimulador(decisiones, simCfg);
+      rondaData.mercadoSegmentos = result.mercadoSegmentos;
+      rondaData.atractivoEquipos = result.atractivoEquipos;
+      rondaData.dashboard        = result.dashboard;
+      rondaData.resultados       = rondaData.resultados || {};
+      result.resultados.forEach(r => { rondaData.resultados[r.equipo] = r; });
+      const reportes = {};
+      for (const d of decisiones) {
+        reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, rondaData.resultados, simCfg);
+      }
+      rondaData.reportes = reportes;
+
+      // Persistir SOLO los campos de resultado de esta ronda (merge): no toca estado,
+      // decisiones, ejecutadaAt, ni ninguna otra ronda.
+      await storage.updateRonda(simId, n, {
+        mercadoSegmentos: rondaData.mercadoSegmentos,
+        atractivoEquipos: rondaData.atractivoEquipos,
+        dashboard:        rondaData.dashboard,
+        resultados:       rondaData.resultados,
+        reportes:         rondaData.reportes,
+      }, ownerId);
+
+      // Verificación inmediata: sobregiroAcumulado (+ campos de deuda) por equipo.
+      const verificacion = result.resultados.map(r => ({
+        equipo:              r.equipo,
+        equipoNombre:        r.equipoNombre,
+        sobregiroAcumulado:  r.sobregiroAcumulado,
+        sobregiro:           r.sobregiro,
+        interesSobregiro:    r.interesSobregiro,
+        deudaPrestamosFinal: r.deudaPrestamosFinal,
+        deudaFinal:          r.deudaFinal,
+        interesesPrestamo:   r.interesesPrestamo,
+      }));
+      return send(res, 200, { ok: true, simId, ronda: n, equiposRecalculados: decisiones.length, verificacion });
+    } catch (e) {
+      return send(res, 500, { error: e.message });
+    }
+  }
+
   // ─── EQUIPO — Decisiones ──────────────────────────────────────
   if (url === '/api/decisiones' && method === 'GET') {
     if (needEquipo()) return;
