@@ -362,7 +362,17 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   // propia y devenga su tasa (6%) sobre el TOTAL acumulado, no solo el nuevo.
   // Interés SIMPLE (no capitaliza) y SIN repago automático: el excedente de caja
   // no amortiza el acumulado — persiste hasta una amortización explícita futura.
-  const sobregiroAcumuladoAnterior = d.sobregiroAcumuladoInicial || 0;
+  // Fallback de transición legado→nuevo: si la decisión YA trae deudaPrestamosInicial
+  // (viene de una cadena propagada) pero NO trae sobregiroAcumuladoInicial, reconstruir
+  // el sobregiro perdido como "lo que sobra" de deudaInicial tras restar el préstamo
+  // formal conocido. Usar != null (no ||) para no reconstruir cuando el valor es un 0
+  // legítimo. En ronda 1 limpia (deudaPrestamosInicial ausente) NO se reconstruye → 0.
+  const sobregiroAcumuladoAnterior =
+    (d.sobregiroAcumuladoInicial != null)
+      ? d.sobregiroAcumuladoInicial
+      : (d.deudaPrestamosInicial != null)
+          ? Math.max(0, (d.deudaInicial || 0) - (d.deudaPrestamosInicial || 0))
+          : 0;
   let sobregiro = 0;                       // sobregiro NUEVO de esta ronda
   if (cajaPreliminar < 0) {
     sobregiro      = roundBs(-cajaPreliminar);
