@@ -2365,6 +2365,9 @@ window.mostrarFinanciero = (n) => {
     <button class="btn btn-ghost" id="tabPL" onclick="showFinTab('pl')" style="background:var(--accent);color:#fff">📋 Estado de Resultados</button>
     <button class="btn btn-ghost" id="tabBG" onclick="showFinTab('bg')">🏦 Balance General</button>
     <button class="btn btn-ghost" id="tabFC" onclick="showFinTab('fc')">💧 Flujo de Efectivo</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-ghost" onclick="descargarFinancieroExcel(${n})">📊 Descargar Excel</button>
+    <button class="btn btn-ghost" onclick="descargarFinancieroPDF(${n})">📄 Descargar PDF</button>
   </div>
 
   <!-- Estado de Resultados -->
@@ -2495,6 +2498,133 @@ window.showFinTab = (tab) => {
     const btn = document.getElementById(id);
     if (btn) { btn.style.background = t===tab?'var(--accent)':''; btn.style.color = t===tab?'#fff':''; }
   });
+};
+
+// ─── Descarga de Estados Financieros (Excel / PDF) ───────────────
+function _finGetItem(n) {
+  return (window._finHistorial||[]).find(h => h.ronda === n) || null;
+}
+
+// Fuente ÚNICA de datos para Excel y PDF: replica línea por línea lo que pinta
+// mostrarFinanciero(). Gastos/deducciones van con signo negativo (sumables).
+function _buildEstadosFinancieros(r) {
+  const resultados = [
+    ['Ventas brutas',              r.ventasBrutas],
+    ['(−) Comisiones canal',       -r.comisiones],
+    ['= Ventas netas',             r.ventasNetas],
+    ['(−) Costo de ventas',        -r.costoVentas],
+    ['= Utilidad bruta',           r.utilidadBruta],
+    ['Publicidad',                 -r.publicidad],
+    ['Promoción',                  -r.promocion],
+    ['Eventos',                    -r.eventos],
+    ['Marketing en redes',         -r.marketingRedes],
+    ['Relaciones públicas',        -r.relacionesPublicas],
+    ['Fuerza de ventas',           -r.costoVendedores],
+    ['Gasto administrativo fijo',  -r.gastoAdminFijo],
+    ['Gasto fijo de planta',       -r.gastoFijoPlanta],
+    ['Depreciación',               -r.depreciacion],
+    ['Almacenamiento inventario',  -r.costoAlmacenamiento],
+  ];
+  if (r.gastoInnovacion > 0) resultados.push(['Innovación', -r.gastoInnovacion]);
+  resultados.push(['Intereses préstamo', -r.interesesPrestamo]);
+  if (r.interesSobregiro > 0) resultados.push(['Intereses sobregiro', -r.interesSobregiro]);
+  resultados.push(['Comisión apertura préstamo', -r.comisionApertura]);
+  resultados.push(['= Utilidad neta', r.utilidadNeta]);
+
+  const cuadra = Math.abs(r.totalActivos - r.deudaFinal - r.patrimonio) < 1;
+  const balance = [
+    ['ACTIVOS', ''],
+    ['Caja',                      r.cajaFinal],
+    ['Cuentas por cobrar (CxC)',  r.cxcFinal],
+    ['Inventarios',               r.invFinalValorizado],
+    ['Activos fijos netos',       r.afNetos],
+    ['= Total Activos',           r.totalActivos],
+    ['PASIVOS', ''],
+    ['Deuda total (préstamos)',   r.deudaFinal],
+    ['= Total Pasivos',           r.deudaFinal],
+    ['PATRIMONIO', ''],
+    ['Capital contable',          r.capitalContable],
+    ['Resultado acumulado',       r.resultadoAcumulado],
+    ['= Patrimonio',              r.patrimonio],
+    ['Chequeo de cuadre',         cuadra ? '✓ Balance cuadra' : '⚠ Verificar balance'],
+  ];
+
+  const flujo = [
+    ['Caja inicial',                       r.cajaInicial],
+    ['Cobros al contado + CxC cobrado',    r.cobrosContado],
+  ];
+  if (r.ingresoPrestamo > 0) flujo.push(['Ingreso préstamo', r.ingresoPrestamo]);
+  if (r.sobregiro > 0)       flujo.push(['Sobregiro tomado', r.sobregiro]);
+  flujo.push(['Pago producción',            -r.pagoProduccion]);
+  flujo.push(['Pago marketing total',       -r.pagoMktTotal]);
+  if (r.pagoInnovacion > 0) flujo.push(['Pago innovación', -r.pagoInnovacion]);
+  flujo.push(['Pago gastos administrativos', -r.pagoAdmin]);
+  flujo.push(['Pago gastos de planta',       -r.pagoPlanta]);
+  flujo.push(['Pago intereses',              -r.pagoIntereses]);
+  if (r.pagoApertura > 0) flujo.push(['Pago comisión apertura', -r.pagoApertura]);
+  flujo.push(['Pago almacenamiento',         -r.pagoAlmacen]);
+  flujo.push(['= Caja final',                r.cajaFinal]);
+
+  return { resultados, balance, flujo };
+}
+
+function _finFileName(r, n, ext) {
+  const safe = (r.equipoNombre || r.equipo || 'equipo').replace(/[^\w\-]+/g, '_');
+  return `Estado_Financiero_R${n}_${safe}.${ext}`;
+}
+
+window.descargarFinancieroExcel = (n) => {
+  if (typeof XLSX === 'undefined') { toast('Librería Excel no disponible (sin conexión al CDN)', 'error'); return; }
+  const item = _finGetItem(n);
+  if (!item) { toast('No hay datos de esa ronda', 'error'); return; }
+  const r = item.resultado;
+  const est = _buildEstadosFinancieros(r);
+  const wb = XLSX.utils.book_new();
+  const hoja = (titulo, rows) => {
+    const ws = XLSX.utils.aoa_to_sheet([[titulo, ''], ['Concepto', 'Monto (Bs)'], ...rows]);
+    ws['!cols'] = [{ wch: 34 }, { wch: 16 }];
+    return ws;
+  };
+  XLSX.utils.book_append_sheet(wb, hoja(`Estado de Resultados — Ronda ${n}`, est.resultados), 'Estado de Resultados');
+  XLSX.utils.book_append_sheet(wb, hoja(`Balance General — Ronda ${n}`, est.balance), 'Balance General');
+  XLSX.utils.book_append_sheet(wb, hoja(`Flujo de Efectivo — Ronda ${n}`, est.flujo), 'Flujo de Efectivo');
+  XLSX.writeFile(wb, _finFileName(r, n, 'xlsx'));
+};
+
+window.descargarFinancieroPDF = (n) => {
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast('Librería PDF no disponible (sin conexión al CDN)', 'error'); return; }
+  const item = _finGetItem(n);
+  if (!item) { toast('No hay datos de esa ronda', 'error'); return; }
+  const r = item.resultado;
+  const est = _buildEstadosFinancieros(r);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const money = v => (typeof v === 'number')
+    ? v.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : v;
+  doc.setFontSize(14);
+  doc.text(`Estado Financiero — Ronda ${n}`, 14, 16);
+  doc.setFontSize(10);
+  doc.text(`Equipo: ${r.equipoNombre || r.equipo || '—'}`, 14, 23);
+  doc.text(`Segmento: ${r.segmento || '—'}  ·  Producto: ${r.producto || '—'}`, 14, 28);
+  if (item.ejecutadaAt) doc.text(`Fecha: ${new Date(item.ejecutadaAt).toLocaleString('es-BO')}`, 14, 33);
+  let y = 40;
+  const tabla = (titulo, rows) => {
+    doc.autoTable({
+      startY: y,
+      head: [[titulo, 'Monto (Bs)']],
+      body: rows.map(([c, v]) => [c, money(v)]),
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      headStyles: { fillColor: [40, 40, 60] },
+      columnStyles: { 1: { halign: 'right' } },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 6;
+  };
+  tabla('Estado de Resultados', est.resultados);
+  tabla('Balance General', est.balance);
+  tabla('Flujo de Efectivo', est.flujo);
+  doc.save(_finFileName(r, n, 'pdf'));
 };
 
 window.mostrarRondaResultado = async (n, historial) => {
