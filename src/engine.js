@@ -278,7 +278,12 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const costoVentasNuevo    = roundBs(unidadesVendidasNuevas * costoUnitario);
   let costoVentas           = roundBs(costoVentasViejo + costoVentasNuevo);
   if (costoVentas < 0) costoVentas = 0;
-  const invFinalValorizado  = roundBs(Math.max(0, invInicialValorizado + produccionValorizada - costoVentas));
+  // No se puede dar de baja más inventario del que existe: se topa costoVentas al
+  // valor disponible y el inventario final es el remanente exacto (conservación:
+  // inv_inicial + producción = costoVentas + inv_final). Debe Costo = Haber Inventario.
+  const inventarioDisponibleVal = roundBs(invInicialValorizado + produccionValorizada);
+  if (costoVentas > inventarioDisponibleVal) costoVentas = inventarioDisponibleVal;
+  const invFinalValorizado  = roundBs(inventarioDisponibleVal - costoVentas);
 
   // Utilidad bruta — DEBE declararse antes de gastosOp y utilidadNeta
   const utilidadBruta = roundBs(ventasNetas - costoVentas);
@@ -314,6 +319,14 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     comisionApertura  = roundBs(montoP * params.comisionAperturaPrestamo);
   }
 
+  // ── Amortización efectiva (partida doble) ──────────────────────
+  // Un pasivo no puede bajar de 0 (Marco Conceptual IASB §4.26; baja NIIF 9 solo
+  // hasta extinguir la obligación existente). El pago se TRUNCA al saldo amortizable;
+  // el exceso NO se desembolsa (queda en caja). Así Debe Préstamos = Haber Caja.
+  const ingresoPrestamo  = tipoP !== 'Ninguno' ? montoP : 0;
+  const deudaAmortizable = deudaExistente + ingresoPrestamo;
+  const amortizacion     = Math.min(d.amortizacion || 0, deudaAmortizable);
+
   // Gastos operativos totales
   let gastosOp = roundBs(
     (d.publicidad         || 0) +
@@ -334,7 +347,8 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   let utilidadNeta = roundBs(utilidadBruta - gastosOp);
 
   // Flujo de caja
-  const cxcCobroEsta = roundBs((d.cxcInicial || 0) / Math.max(1, params.plazoCobro)); // cobro cuota del CxC anterior
+  // Cobro topado al saldo (no se cobra más CxC del que existe) → Debe Caja = Haber CxC.
+  const cxcCobroEsta = roundBs(Math.min((d.cxcInicial || 0), (d.cxcInicial || 0) / Math.max(1, params.plazoCobro)));
   const cobrosContado = roundBs(ventasNetas * params.pctVentasContado + cxcCobroEsta);
 
   // Produccion: pago de costos de producción (solo MP y conversión, sin CxP por simplicidad)
@@ -347,13 +361,12 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   const pagoAlmacen      = costoAlmacenamiento;
   const pagoIntereses    = interesesPrestamo;
   const pagoApertura     = comisionApertura;
-  const pagoAmortizacion = d.amortizacion || 0; // ★ la amortización es salida de caja
+  const pagoAmortizacion = amortizacion; // ★ salida de caja = amortización efectiva (truncada)
 
   const totalPagos = roundBs(pagoProduccion + pagoMktTotal + pagoAdmin + pagoPlanta +
     pagoInnovacion + pagoAlmacen + pagoIntereses + pagoApertura + pagoAmortizacion);
 
   const cajaInicial   = d.cajaInicial || 0;
-  const ingresoPrestamo = tipoP !== 'Ninguno' ? montoP : 0;
 
   let cajaPreliminar = roundBs(cajaInicial + cobrosContado + ingresoPrestamo - totalPagos);
 
@@ -386,14 +399,15 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   }
   const cajaFinal = cajaPreliminar;
 
-   // CxC final = CxC anterior no cobrado + nuevas ventas a crédito
+   // CxC final = CxC anterior no cobrado + nuevas ventas a crédito.
+   // cxcCobroEsta ya está topado al saldo → cxcNoCobrObj ≥ 0 sin clamp que pierda valor.
   const cxcNuevo     = roundBs(ventasNetas * params.pctVentasCredito);
   const cxcNoCobrObj = roundBs((d.cxcInicial || 0) - cxcCobroEsta);
-  const cxcFinal     = roundBs(Math.max(0, cxcNoCobrObj) + cxcNuevo);
+  const cxcFinal     = roundBs(cxcNoCobrObj + cxcNuevo);
 
-  // Deuda de préstamos (principal SOLO, sin sobregiro) — base limpia que se propaga
-  const amortizacion = d.amortizacion || 0;
-  const deudaPrestamos = roundBs(Math.max(0, deudaExistente + ingresoPrestamo - amortizacion));
+  // Deuda de préstamos (principal SOLO, sin sobregiro) — base limpia que se propaga.
+  // amortizacion ya truncada al saldo amortizable (arriba) → resta exacta, sin clamp.
+  const deudaPrestamos = roundBs(deudaAmortizable - amortizacion);
   const deudaPrestamosFinal = deudaPrestamos;
   // Deuda final = préstamos + sobregiro acumulado + su interés (pasivo, no caja)
   const deudaFinal = roundBs(deudaPrestamos + sobregiroAcumulado + interesSobregiro);
@@ -401,16 +415,28 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   // Activos fijos netos
   const afNetos = roundBs((d.activosFijosIniciales || params.activosFijosIniciales) - params.depreciacionTrimestral);
 
-  // Balance General — debe cuadrar: Activos = Pasivos + Patrimonio
-  // Pasivos = deudaFinal (préstamos + sobregiro + interés sobregiro)
-  // Patrimonio = Capital + ResultadoAcumulado (resultado ya incluye la pérdida del interesSobregiro)
-  const totalActivos    = roundBs(cajaFinal + cxcFinal + invFinalValorizado + afNetos);
-  // capitalContable es el capital ORIGINAL que pusieron los socios — no cambia con la depreciación
-  const capitalContable = roundBs(params.activosFijosIniciales + params.cajaInicial);
+  // ── Balance General: identidad forzada Activos = Pasivos + Patrimonio ──
+  // El patrimonio se deriva como RESIDUAL (Activos − Pasivos), UNA sola fórmula,
+  // en vez de tres cifras independientes que deban coincidir por casualidad.
+  const totalActivos = roundBs(cajaFinal + cxcFinal + invFinalValorizado + afNetos);
+  const totalPasivos = deudaFinal; // préstamos + sobregiro acumulado + interés sobregiro
+  const patrimonio   = roundBs(totalActivos - totalPasivos);
+
+  // Desglose del patrimonio para el Estado de Resultados y el Estado de Cambios en el
+  // Patrimonio (estados SEPARADOS — NO alimentan el balance):
+  //  - resultadoAcumulado: ganancias retenidas (RA previo + utilidad del período)
+  //  - capitalContable: capital original = activos netos de APERTURA − RA previo,
+  //    derivado de los saldos REALES de la decisión (no de params globales); constante
+  //    entre rondas si la cadena es consistente.
   const resultadoAcumulado = roundBs((d.resultadoAcumuladoAnterior || 0) + utilidadNeta);
-  const patrimonio      = roundBs(capitalContable + resultadoAcumulado);
-  // totalPasivos = totalActivos - patrimonio (by definition, ensures balance)
-  const totalPasivos    = deudaFinal;
+  const activosNetosApertura = roundBs(
+    (d.cajaInicial || 0) + (d.cxcInicial || 0) + invInicialValorizado +
+    (d.activosFijosIniciales || params.activosFijosIniciales) - (d.deudaInicial || 0));
+  const capitalContable = roundBs(activosNetosApertura - (d.resultadoAcumuladoAnterior || 0));
+  // Diagnóstico de integridad de partida doble: con el patrimonio forzado el balance
+  // cuadra siempre; la prueba REAL es si el patrimonio residual reconcilia con el
+  // patrimonio contable (capital + ganancias retenidas). ~0 ⟺ sin fugas.
+  const descuadrePatrimonio = roundBs(patrimonio - (capitalContable + resultadoAcumulado));
 
   return {
     // Estado de Resultados
@@ -438,7 +464,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     // Balance
     cxcFinal, invFinalValorizado, afNetos,
     totalActivos, deudaFinal, deudaPrestamosFinal, totalPasivos,
-    capitalContable, resultadoAcumulado, patrimonio,
+    capitalContable, resultadoAcumulado, patrimonio, descuadrePatrimonio,
 
     // Para propagación
     inventarioFinal, vendedoresFinales: d.vendedoresFinales || d.vendedoresIniciales,
