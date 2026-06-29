@@ -5,6 +5,7 @@
  *   - createUser maneja graciosamente la columna password_plain si no existe en BD
  */
 const { Pool } = require('pg');
+const { sembrarSaldosIniciales } = require('./engine'); // fuente única de propagación entre rondas
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -268,23 +269,10 @@ async function ensureRonda(simulacionId, n, ownerId = null) {
             nuevaDec.innovacion = false; nuevaDec.tipoInnovacion = ''; nuevaDec.montoInnovacion = 0;
             nuevaDec.tipoInvestigacion = 'No';
             const resPrev = prevRonda.resultados[eq.id];
-             if (resPrev) {
-              nuevaDec.cajaInicial          = Math.max(0, resPrev.cajaFinal);
-              nuevaDec.cxcInicial           = Math.max(0, resPrev.cxcFinal);
-              nuevaDec.deudaInicial         = Math.max(0, resPrev.deudaFinal);
-              nuevaDec.deudaPrestamosInicial = Math.max(0, resPrev.deudaPrestamosFinal || 0);
-              nuevaDec.sobregiroAcumuladoInicial = Math.max(0, resPrev.sobregiroAcumulado || 0);
-              nuevaDec.interesSobregiroAcumuladoInicial = Math.max(0, resPrev.interesSobregiroAcumulado || 0);
-              nuevaDec.inventarioInicial    = Math.max(0, resPrev.inventarioFinal);
-              nuevaDec.vendedoresIniciales  = Math.max(1, resPrev.vendedoresFinales);
-              nuevaDec.activosFijosIniciales= Math.max(0, resPrev.activosFijosNetos || 78000);
-              nuevaDec.resultadoAcumuladoAnterior = resPrev.resultadoAcumulado;
-              // ★ NUEVO: heredar el costo unitario de la ronda anterior
-              nuevaDec.costoUnitarioAnterior = resPrev.costoUnitario || 0;
-              // ★ NUEVO: propagar el inventario inicial ya valorizado desde la ronda anterior
-              nuevaDec.invInicialValorizado = resPrev.invFinalValorizado;
-              // ★ NUEVO: propagar el tipo de préstamo para aplicar la tasa histórica
-              nuevaDec.tipoPrestamoPrevio = resPrev.tipoPrestamo || 'Inversión';
+            if (resPrev) {
+              // Fuente única de propagación (engine.sembrarSaldosIniciales): siembra los
+              // 13 saldos de apertura desde el cierre de la ronda anterior.
+              sembrarSaldosIniciales(nuevaDec, resPrev, sim.parametros);
             }
             rondaBase.decisiones[eq.id] = nuevaDec;
           } else {

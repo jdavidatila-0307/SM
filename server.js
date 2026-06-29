@@ -12,7 +12,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const { hashPassword, verifyPassword } = require('./src/auth');
 const storage  = require('./src/storage');
-const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, normalizarDecision } = require('./src/engine');
+const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, normalizarDecision, sembrarSaldosIniciales } = require('./src/engine');
 const { generarReportes } = require('./src/reports');
 
 const PORT = process.env.PORT || 3000;
@@ -77,6 +77,94 @@ async function getCurrentSimulation(session) {
   const sim = await storage.getSimulacion(session.simulacionId, ownerId);
   if (!sim) { session.simulacionId = null; return null; }
   return sim;
+}
+
+// ── Recálculo encadenado (lógica única compartida por los endpoints) ──
+// Recalcula desde `inicio` hacia adelante: la ronda `inicio` se recomputa con sus
+// decisiones TAL CUAL (ancla); cada ronda 'simulated' siguiente se re-siembra desde
+// el resultado fresco de la anterior (engine.sembrarSaldosIniciales) y se recomputa.
+// VERIFICA |descuadrePatrimonio| <= 0.01 EN MEMORIA antes de persistir cada ronda:
+// si falla, no escribe esa ronda y se detiene. Idempotente. Devuelve { status, body }.
+async function recalcularEnCadena(simId, inicio, ownerId) {
+  const simToFix = await storage.getSimulacion(simId, ownerId);
+  if (!simToFix) return { status: 404, body: { error: 'Simulación no encontrada o no autorizada' } };
+  const rondas = simToFix.rondas || {};
+  if (!rondas[String(inicio)]) return { status: 404, body: { error: `Ronda ${inicio} no existe` } };
+  if (rondas[String(inicio)].estado !== 'simulated') {
+    return { status: 400, body: { error: `Ronda ${inicio} no está simulada (estado: ${rondas[String(inicio)].estado})` } };
+  }
+  const simCfg = {
+    params: simToFix.parametros, tiposProducto: simToFix.tipos_producto, canales: simToFix.canales,
+    segmentos: simToFix.segmentos, afinidadMatrix: simToFix.afinidad_matrix, competenciaExterna: simToFix.competencia_externa,
+  };
+  const equipos = simToFix.users || [];
+  const TOL = 0.01; // piso de redondeo aprobado (TAREA B)
+  const rondasProcesadas = [], detalle = [];
+  let detenidoEn = null, propagacionFinal = null, N = inicio, guard = 0;
+
+  while (guard++ < 200) {
+    const rondaData = rondas[String(N)];
+    const decisiones = equipos.filter(eq => rondaData.decisiones?.[eq.id]).map(eq => ({ ...rondaData.decisiones[eq.id] }));
+    if (!decisiones.length) { detenidoEn = { ronda: N, motivo: 'sin-decisiones' }; break; }
+
+    let result;
+    try { result = ejecutarSimulador(decisiones, simCfg); }
+    catch (e) { return { status: 500, body: { error: e.message, rondasProcesadas, detalle } }; }
+
+    // Verificar EN MEMORIA antes de persistir: |descuadrePatrimonio| <= 0.01.
+    const verificacion = result.resultados.map(r => ({
+      equipo: r.equipo, equipoNombre: r.equipoNombre,
+      descuadrePatrimonio: r.descuadrePatrimonio,
+      totalActivos: r.totalActivos, totalPasivos: r.totalPasivos, patrimonio: r.patrimonio,
+      capitalContable: r.capitalContable, resultadoAcumulado: r.resultadoAcumulado,
+      balanceOk: Math.abs(r.descuadrePatrimonio || 0) <= TOL,
+    }));
+    const fallo = verificacion.find(v => !v.balanceOk);
+    if (fallo) {
+      return { status: 422, body: {
+        ok: false,
+        error: `Balance no cuadra en ronda ${N}, equipo ${fallo.equipoNombre || fallo.equipo} (descuadrePatrimonio ${fallo.descuadrePatrimonio} Bs). No se escribió nada de esta ronda.`,
+        falloEn: { ronda: N, ...fallo }, rondasProcesadas, detalle,
+      } };
+    }
+
+    // Balance OK → persistir SOLO esta ronda (merge).
+    const resultadosMap = { ...(rondaData.resultados || {}) };
+    result.resultados.forEach(r => { resultadosMap[r.equipo] = r; });
+    const reportes = {};
+    for (const d of decisiones) {
+      reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, resultadosMap, simCfg);
+    }
+    await storage.updateRonda(simId, N, {
+      mercadoSegmentos: result.mercadoSegmentos, atractivoEquipos: result.atractivoEquipos,
+      dashboard: result.dashboard, resultados: resultadosMap, reportes,
+    }, ownerId);
+    rondasProcesadas.push(N);
+    detalle.push({ ronda: N, balanceOk: true, verificacion });
+
+    // Propagar saldos a la ronda siguiente (fuente única).
+    const sigNum = N + 1;
+    const rondaSig = rondas[String(sigNum)];
+    if (!rondaSig || !rondaSig.decisiones) { detenidoEn = { ronda: N, motivo: 'cadena-completa' }; break; }
+    const resMap = {};
+    result.resultados.forEach(r => { resMap[r.equipo] = r; });
+    let propagados = 0;
+    for (const eq of equipos) {
+      const decSig = rondaSig.decisiones[eq.id];
+      const resAnt = resMap[eq.id];
+      if (!decSig || !resAnt) continue;
+      sembrarSaldosIniciales(decSig, resAnt, simCfg.params);
+      propagados++;
+    }
+    await storage.updateRonda(simId, sigNum, { decisiones: rondaSig.decisiones }, ownerId);
+    propagacionFinal = { ronda: sigNum, saldosPropagados: propagados };
+
+    if (rondaSig.estado === 'simulated') { N = sigNum; continue; } // sigue la cadena
+    detenidoEn = { ronda: sigNum, motivo: 'siguiente-no-simulada' }; // re-sembrada, no recalculada
+    break;
+  }
+
+  return { status: 200, body: { ok: true, simId, rondaInicio: inicio, rondasProcesadas, detalle, detenidoEn, propagacionFinal } };
 }
 
 // ── Ruta principal ─────────────────────────────────────────────
@@ -823,7 +911,11 @@ async function route(req, res, body) {
   }
 
   
-  // ═══ RECALCULADOR (puede dejarse permanente) ═══════════════
+  // ═══ RECALCULADOR ═══════════════
+  // DEPRECATED: usar /admin/recalcular-completa (recálculo desde R1 con verificación
+  // de balance |descuadrePatrimonio| <= 0.01 antes de persistir). Este endpoint NO
+  // tiene gate de balance y aún lo referencia un botón del panel (public/app.js).
+  // Se conserva por compatibilidad/reversión; ya usa la fuente única de propagación.
     if (url === '/admin/recalcular-simulacion' && method === 'POST') {
     if (needAdmin()) return;
     const { simId } = body;
@@ -863,28 +955,10 @@ async function route(req, res, body) {
       for (const eq of equipos) {
         const dec = rondaData.decisiones[eq.id];
         if (!dec) continue;
-        // Si hay resultados de la ronda anterior, actualizar saldos iniciales
-             if (ultimosResultados) {
-          const resAnt = ultimosResultados[eq.id];
-          if (resAnt) {
-            dec.cajaInicial = Math.max(0, resAnt.cajaFinal);
-            dec.cxcInicial = Math.max(0, resAnt.cxcFinal);
-            dec.deudaInicial = Math.max(0, resAnt.deudaFinal);
-            dec.deudaPrestamosInicial = Math.max(0, resAnt.deudaPrestamosFinal || 0);
-            dec.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
-            dec.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
-            dec.inventarioInicial = Math.max(0, resAnt.inventarioFinal);
-            dec.vendedoresIniciales = Math.max(1, resAnt.vendedoresFinales);
-            dec.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
-            dec.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
-            // ★ NUEVO: heredar el costo unitario de la ronda anterior
-            dec.costoUnitarioAnterior = resAnt.costoUnitario || 0;
-            // ★ NUEVO: propagar el inventario inicial ya valorizado desde la ronda anterior
-            dec.invInicialValorizado = resAnt.invFinalValorizado;
-            // ★ NUEVO: propagar el tipo de préstamo para aplicar la tasa histórica
-            dec.tipoPrestamoPrevio = resAnt.tipoPrestamo || 'Inversión';
-          }
-        } 
+        // Si hay resultados de la ronda anterior, sembrar saldos iniciales (fuente única)
+        if (ultimosResultados && ultimosResultados[eq.id]) {
+          sembrarSaldosIniciales(dec, ultimosResultados[eq.id], simCfg.params);
+        }
         decisiones.push({ ...dec });
       }
 
@@ -930,19 +1004,7 @@ async function route(req, res, body) {
           const decSig = rondaSiguiente.decisiones[eq.id];
           const resAnt = ultimosResultados[eq.id];
           if (!decSig || !resAnt) continue;
-          decSig.cajaInicial           = Math.max(0, resAnt.cajaFinal);
-          decSig.cxcInicial            = Math.max(0, resAnt.cxcFinal);
-          decSig.deudaInicial          = Math.max(0, resAnt.deudaFinal);
-          decSig.deudaPrestamosInicial = Math.max(0, resAnt.deudaPrestamosFinal || 0);
-          decSig.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
-          decSig.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
-          decSig.inventarioInicial     = Math.max(0, resAnt.inventarioFinal);
-          decSig.vendedoresIniciales   = Math.max(1, resAnt.vendedoresFinales);
-          decSig.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
-          decSig.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
-          decSig.costoUnitarioAnterior = resAnt.costoUnitario || 0;
-          decSig.invInicialValorizado = resAnt.invFinalValorizado;
-          decSig.tipoPrestamoPrevio = resAnt.tipoPrestamo || 'Inversión';
+          sembrarSaldosIniciales(decSig, resAnt, simCfg.params); // fuente única
           propagados++;
         }
         if (propagados > 0) {
@@ -955,232 +1017,33 @@ async function route(req, res, body) {
     return send(res, 200, { ok: true, simId, rondasReparadas: resumen.length, detalle: resumen });
   }
 
-  // ─── TEMPORAL: recalcular UNA ronda aislada, sin re-sembrar desde la anterior ───
-  // Usado para fix quirúrgico de sobregiroAcumulado en VIVE5 R9. Lee las decisiones
-  // de la ronda TAL CUAL (preserva valores parchados manualmente en BD), recomputa
-  // solo esa ronda y NO toca currentRound, roundState ni otras rondas.
-  if (url === '/admin/recalcular-ronda' && method === 'POST') {
+  // ─── Recálculo COMPLETO desde Ronda 1 (botón del panel del profesor) ───
+  // Alias explícito de la lógica encadenada con rondaInicio = 1. Verifica
+  // |descuadrePatrimonio| <= 0.01 antes de persistir cada ronda; idempotente.
+  if (url === '/admin/recalcular-completa' && method === 'POST') {
     if (needAdmin()) return;
-    const { simId, ronda } = body;
-    if (!simId || ronda == null) return send(res, 400, { error: 'simId y ronda requeridos' });
-    const n = parseInt(ronda);
-    if (!Number.isInteger(n) || n < 1) return send(res, 400, { error: 'ronda inválida' });
-
+    const { simId } = body;
+    if (!simId) return send(res, 400, { error: 'simId requerido' });
     const user = await storage.findUserById(s.userId);
     const ownerId = user.rol !== 'superadmin' ? user.id : null;
-    const simToFix = await storage.getSimulacion(simId, ownerId);
-    if (!simToFix) return send(res, 404, { error: 'Simulación no encontrada o no autorizada' });
-
-    const rondaData = (simToFix.rondas || {})[String(n)];
-    if (!rondaData) return send(res, 404, { error: `Ronda ${n} no existe` });
-    if (rondaData.estado !== 'simulated') return send(res, 400, { error: `Ronda ${n} no está simulada (estado: ${rondaData.estado})` });
-
-    const simCfg = {
-      params: simToFix.parametros,
-      tiposProducto: simToFix.tipos_producto,
-      canales: simToFix.canales,
-      segmentos: simToFix.segmentos,
-      afinidadMatrix: simToFix.afinidad_matrix,
-      competenciaExterna: simToFix.competencia_externa
-    };
-
-    const equipos = simToFix.users || [];
-    // Decisiones TAL CUAL — sin el re-seed desde la ronda anterior que hace el bulk.
-    const decisiones = equipos
-      .filter(eq => rondaData.decisiones?.[eq.id])
-      .map(eq => ({ ...rondaData.decisiones[eq.id] }));
-    if (!decisiones.length) return send(res, 400, { error: 'Sin decisiones en esa ronda' });
-
-    try {
-      const result = ejecutarSimulador(decisiones, simCfg);
-      rondaData.mercadoSegmentos = result.mercadoSegmentos;
-      rondaData.atractivoEquipos = result.atractivoEquipos;
-      rondaData.dashboard        = result.dashboard;
-      rondaData.resultados       = rondaData.resultados || {};
-      result.resultados.forEach(r => { rondaData.resultados[r.equipo] = r; });
-      const reportes = {};
-      for (const d of decisiones) {
-        reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos, rondaData.resultados, simCfg);
-      }
-      rondaData.reportes = reportes;
-
-      // Persistir SOLO los campos de resultado de esta ronda (merge): no toca estado,
-      // decisiones, ejecutadaAt, ni ninguna otra ronda.
-      await storage.updateRonda(simId, n, {
-        mercadoSegmentos: rondaData.mercadoSegmentos,
-        atractivoEquipos: rondaData.atractivoEquipos,
-        dashboard:        rondaData.dashboard,
-        resultados:       rondaData.resultados,
-        reportes:         rondaData.reportes,
-      }, ownerId);
-
-      // Verificación inmediata: sobregiroAcumulado (+ campos de deuda) por equipo.
-      // ── DEBUG TEMPORAL: internos completos del flujo para diagnosticar descuadre ──
-      const verificacion = result.resultados.map(r => ({
-        equipo:              r.equipo,
-        equipoNombre:        r.equipoNombre,
-        // Flujo de caja
-        cajaInicial:         r.cajaInicial,
-        cobrosContado:       r.cobrosContado,
-        ingresoPrestamo:     r.ingresoPrestamo,
-        totalPagos:          r.totalPagos,
-        pagoAmortizacion:    r.pagoAmortizacion,
-        sobregiro:           r.sobregiro,
-        cajaFinal:           r.cajaFinal,
-        // Deuda
-        interesesPrestamo:   r.interesesPrestamo,
-        interesSobregiro:    r.interesSobregiro,
-        sobregiroAcumulado:  r.sobregiroAcumulado,
-        deudaPrestamosFinal: r.deudaPrestamosFinal,
-        deudaFinal:          r.deudaFinal,
-        // Balance
-        totalActivos:        r.totalActivos,
-        patrimonio:          r.patrimonio,
-        utilidadNeta:        r.utilidadNeta,
-        resultadoAcumulado:  r.resultadoAcumulado,
-        descuadre:           Math.round(((r.totalActivos||0) - (r.deudaFinal||0) - (r.patrimonio||0)) * 100) / 100,
-      }));
-      return send(res, 200, { ok: true, simId, ronda: n, equiposRecalculados: decisiones.length, verificacion });
-    } catch (e) {
-      return send(res, 500, { error: e.message });
-    }
+    const { status, body: payload } = await recalcularEnCadena(simId, 1, ownerId);
+    return send(res, status, payload);
   }
 
-  // ─── TEMPORAL: recalcular en CADENA desde rondaInicio hacia adelante ───
-  // Ancla en rondaInicio (decisiones TAL CUAL, preserva parches manuales); cada
-  // ronda 'simulated' siguiente se re-siembra desde el resultado fresco de la
-  // anterior y se recalcula. Verifica balance EN MEMORIA antes de persistir: si
-  // una ronda no cuadra, NO se escribe nada de esa ronda y la cadena se detiene.
-  // Se detiene también al llegar a una ronda no-'simulated' (a la que sí le
-  // re-siembra los saldos iniciales, sin recalcularla) o al final de las rondas.
+  // ─── Recálculo en CADENA desde rondaInicio (recálculo PARCIAL) ───
+  // Misma lógica única que recalcular-completa, pero arrancando en una ronda
+  // arbitraria (p.ej. fix quirúrgico VIVE5/R9). Verifica |descuadrePatrimonio| <= 0.01
+  // antes de persistir cada ronda y se detiene al primer fallo.
   if (url === '/admin/recalcular-cadena' && method === 'POST') {
     if (needAdmin()) return;
     const { simId, rondaInicio } = body;
     if (!simId || rondaInicio == null) return send(res, 400, { error: 'simId y rondaInicio requeridos' });
     const inicio = parseInt(rondaInicio);
     if (!Number.isInteger(inicio) || inicio < 1) return send(res, 400, { error: 'rondaInicio inválida' });
-
     const user = await storage.findUserById(s.userId);
     const ownerId = user.rol !== 'superadmin' ? user.id : null;
-    const simToFix = await storage.getSimulacion(simId, ownerId);
-    if (!simToFix) return send(res, 404, { error: 'Simulación no encontrada o no autorizada' });
-
-    const rondas = simToFix.rondas || {};
-    if (!rondas[String(inicio)]) return send(res, 404, { error: `Ronda ${inicio} no existe` });
-    if (rondas[String(inicio)].estado !== 'simulated') {
-      return send(res, 400, { error: `Ronda ${inicio} no está simulada (estado: ${rondas[String(inicio)].estado})` });
-    }
-
-    const simCfg = {
-      params: simToFix.parametros,
-      tiposProducto: simToFix.tipos_producto,
-      canales: simToFix.canales,
-      segmentos: simToFix.segmentos,
-      afinidadMatrix: simToFix.afinidad_matrix,
-      competenciaExterna: simToFix.competencia_externa
-    };
-    const equipos = simToFix.users || [];
-    const TOL = 1; // Bs, igual que el chequeo de la UI
-
-    const rondasProcesadas = [];
-    const detalle = [];
-    let detenidoEn = null;
-    let propagacionFinal = null;
-
-    let N = inicio;
-    let guard = 0;
-    try {
-      while (guard++ < 200) {
-        const rondaData = rondas[String(N)];
-        const decisiones = equipos
-          .filter(eq => rondaData.decisiones?.[eq.id])
-          .map(eq => ({ ...rondaData.decisiones[eq.id] }));
-        if (!decisiones.length) { detenidoEn = { ronda: N, motivo: 'sin-decisiones' }; break; }
-
-        const result = ejecutarSimulador(decisiones, simCfg);
-
-        // ── Verificar balance EN MEMORIA, antes de persistir nada ──
-        const verificacion = result.resultados.map(r => {
-          const descuadre = Math.abs((r.totalActivos || 0) - (r.deudaFinal || 0) - (r.patrimonio || 0));
-          return {
-            equipo: r.equipo, equipoNombre: r.equipoNombre,
-            sobregiroAcumulado: r.sobregiroAcumulado, deudaFinal: r.deudaFinal,
-            totalActivos: r.totalActivos, patrimonio: r.patrimonio,
-            descuadre: Math.round(descuadre * 100) / 100, balanceOk: descuadre < TOL,
-          };
-        });
-        const fallo = verificacion.find(v => !v.balanceOk);
-        if (fallo) {
-          return send(res, 422, {
-            ok: false,
-            error: `Balance no cuadra en ronda ${N}, equipo ${fallo.equipoNombre || fallo.equipo} (descuadre ${fallo.descuadre} Bs). No se escribió nada de esta ronda.`,
-            falloEn: { ronda: N, ...fallo },
-            rondasProcesadas, detalle,
-          });
-        }
-
-        // ── Balance OK → persistir resultados de esta ronda ──
-        const reportes = {};
-        for (const d of decisiones) {
-          reportes[d.equipo] = generarReportes(d, result.mercadoSegmentos, result.atractivoEquipos,
-            (() => { const m = { ...(rondaData.resultados || {}) }; result.resultados.forEach(r => { m[r.equipo] = r; }); return m; })(), simCfg);
-        }
-        const resultadosMap = { ...(rondaData.resultados || {}) };
-        result.resultados.forEach(r => { resultadosMap[r.equipo] = r; });
-        rondaData.resultados = resultadosMap;
-        rondaData.reportes = reportes;
-        rondaData.mercadoSegmentos = result.mercadoSegmentos;
-        rondaData.atractivoEquipos = result.atractivoEquipos;
-        rondaData.dashboard = result.dashboard;
-        await storage.updateRonda(simId, N, {
-          mercadoSegmentos: result.mercadoSegmentos,
-          atractivoEquipos: result.atractivoEquipos,
-          dashboard: result.dashboard,
-          resultados: resultadosMap,
-          reportes,
-        }, ownerId);
-        rondasProcesadas.push(N);
-        detalle.push({ ronda: N, balanceOk: true, verificacion });
-
-        // ── Propagar saldos hacia la ronda siguiente ──
-        const sigNum = N + 1;
-        const rondaSig = rondas[String(sigNum)];
-        if (!rondaSig || !rondaSig.decisiones) { detenidoEn = { ronda: N, motivo: 'cadena-completa' }; break; }
-
-        const resMap = {};
-        result.resultados.forEach(r => { resMap[r.equipo] = r; });
-        let propagados = 0;
-        for (const eq of equipos) {
-          const decSig = rondaSig.decisiones[eq.id];
-          const resAnt = resMap[eq.id];
-          if (!decSig || !resAnt) continue;
-          decSig.cajaInicial               = Math.max(0, resAnt.cajaFinal);
-          decSig.cxcInicial                = Math.max(0, resAnt.cxcFinal);
-          decSig.deudaInicial              = Math.max(0, resAnt.deudaFinal);
-          decSig.deudaPrestamosInicial     = Math.max(0, resAnt.deudaPrestamosFinal || 0);
-          decSig.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
-          decSig.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
-          decSig.inventarioInicial         = Math.max(0, resAnt.inventarioFinal);
-          decSig.vendedoresIniciales       = Math.max(1, resAnt.vendedoresFinales);
-          decSig.activosFijosIniciales     = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
-          decSig.resultadoAcumuladoAnterior = resAnt.resultadoAcumulado;
-          decSig.costoUnitarioAnterior     = resAnt.costoUnitario || 0;
-          decSig.invInicialValorizado      = resAnt.invFinalValorizado;
-          decSig.tipoPrestamoPrevio        = resAnt.tipoPrestamo || 'Inversión';
-          propagados++;
-        }
-        await storage.updateRonda(simId, sigNum, { decisiones: rondaSig.decisiones }, ownerId);
-        propagacionFinal = { ronda: sigNum, saldosPropagados: propagados };
-
-        if (rondaSig.estado === 'simulated') { N = sigNum; continue; } // sigue la cadena
-        detenidoEn = { ronda: sigNum, motivo: 'siguiente-no-simulada' }; // re-sembrada, no recalculada
-        break;
-      }
-    } catch (e) {
-      return send(res, 500, { error: e.message, rondasProcesadas, detalle });
-    }
-
-    return send(res, 200, { ok: true, simId, rondaInicio: inicio, rondasProcesadas, detalle, detenidoEn, propagacionFinal });
+    const { status, body: payload } = await recalcularEnCadena(simId, inicio, ownerId);
+    return send(res, status, payload);
   }
 
   // ─── EQUIPO — Decisiones ──────────────────────────────────────

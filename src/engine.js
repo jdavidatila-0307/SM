@@ -649,4 +649,28 @@ function calcularPreSimulacion(decisiones, cfg) {
   return { mercadoSegmentos, resultado };
 }
 
-module.exports = { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, normalizarDecision };
+// ── Propagación de saldos entre rondas (FUENTE ÚNICA) ─────────────
+// Siembra los saldos iniciales de la decisión `dec` a partir del resultado de la
+// ronda anterior `resAnt`. Reemplaza las copias duplicadas que existían en
+// storage.js (ensureRonda) y server.js (recalcular-simulacion x2, recalcular-cadena).
+// Es la pata "apertura" del encadenamiento contable: el cierre de N alimenta la
+// apertura de N+1, campo por campo, sin que ninguna magnitud se pierda.
+function sembrarSaldosIniciales(dec, resAnt, params) {
+  if (!dec || !resAnt) return dec;
+  dec.cajaInicial                      = Math.max(0, resAnt.cajaFinal);
+  dec.cxcInicial                       = Math.max(0, resAnt.cxcFinal);
+  dec.deudaInicial                     = Math.max(0, resAnt.deudaFinal);
+  dec.deudaPrestamosInicial            = Math.max(0, resAnt.deudaPrestamosFinal || 0);
+  dec.sobregiroAcumuladoInicial        = Math.max(0, resAnt.sobregiroAcumulado || 0);
+  dec.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
+  dec.inventarioInicial                = Math.max(0, resAnt.inventarioFinal);
+  dec.vendedoresIniciales              = Math.max(1, resAnt.vendedoresFinales);
+  dec.activosFijosIniciales            = Math.max(0, resAnt.activosFijosNetos ?? (params && params.activosFijosIniciales) ?? 0);
+  dec.resultadoAcumuladoAnterior       = resAnt.resultadoAcumulado;
+  dec.costoUnitarioAnterior            = resAnt.costoUnitario || 0;
+  dec.invInicialValorizado             = resAnt.invFinalValorizado;
+  dec.tipoPrestamoPrevio               = resAnt.tipoPrestamo || 'Inversión';
+  return dec;
+}
+
+module.exports = { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, normalizarDecision, sembrarSaldosIniciales };
