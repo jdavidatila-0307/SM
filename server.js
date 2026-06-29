@@ -872,6 +872,7 @@ async function route(req, res, body) {
             dec.deudaInicial = Math.max(0, resAnt.deudaFinal);
             dec.deudaPrestamosInicial = Math.max(0, resAnt.deudaPrestamosFinal || 0);
             dec.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
+            dec.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
             dec.inventarioInicial = Math.max(0, resAnt.inventarioFinal);
             dec.vendedoresIniciales = Math.max(1, resAnt.vendedoresFinales);
             dec.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
@@ -934,6 +935,7 @@ async function route(req, res, body) {
           decSig.deudaInicial          = Math.max(0, resAnt.deudaFinal);
           decSig.deudaPrestamosInicial = Math.max(0, resAnt.deudaPrestamosFinal || 0);
           decSig.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
+          decSig.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
           decSig.inventarioInicial     = Math.max(0, resAnt.inventarioFinal);
           decSig.vendedoresIniciales   = Math.max(1, resAnt.vendedoresFinales);
           decSig.activosFijosIniciales = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);
@@ -1157,6 +1159,7 @@ async function route(req, res, body) {
           decSig.deudaInicial              = Math.max(0, resAnt.deudaFinal);
           decSig.deudaPrestamosInicial     = Math.max(0, resAnt.deudaPrestamosFinal || 0);
           decSig.sobregiroAcumuladoInicial = Math.max(0, resAnt.sobregiroAcumulado || 0);
+          decSig.interesSobregiroAcumuladoInicial = Math.max(0, resAnt.interesSobregiroAcumulado || 0);
           decSig.inventarioInicial         = Math.max(0, resAnt.inventarioFinal);
           decSig.vendedoresIniciales       = Math.max(1, resAnt.vendedoresFinales);
           decSig.activosFijosIniciales     = Math.max(0, resAnt.activosFijosNetos || simCfg.params.activosFijosIniciales);

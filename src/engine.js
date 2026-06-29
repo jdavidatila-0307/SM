@@ -392,11 +392,15 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     cajaPreliminar = 0;
   }
   const sobregiroAcumulado = roundBs(sobregiroAcumuladoAnterior + sobregiro);
-  const interesSobregiro   = roundBs(sobregiroAcumulado * params.tasaSobregiro);
+  const interesSobregiro   = roundBs(sobregiroAcumulado * params.tasaSobregiro); // 6% SOLO sobre principal (no capitaliza)
   if (interesSobregiro > 0) {
-    utilidadNeta = roundBs(utilidadNeta - interesSobregiro);
+    utilidadNeta = roundBs(utilidadNeta - interesSobregiro);   // gasto del período (Estado de Resultados)
     gastosOp     = roundBs(gastosOp + interesSobregiro);
   }
+  // Interés de sobregiro DEVENGADO y no pagado = pasivo acumulado (interés por pagar):
+  // persiste entre rondas hasta su liquidación (NIC 1 / NIC 37). El 6% nunca se calcula
+  // sobre este bucket → se preserva la regla "no capitaliza" decidida antes.
+  const interesSobregiroAcumulado = roundBs((d.interesSobregiroAcumuladoInicial || 0) + interesSobregiro);
   const cajaFinal = cajaPreliminar;
 
    // CxC final = CxC anterior no cobrado + nuevas ventas a crédito.
@@ -409,8 +413,9 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
   // amortizacion ya truncada al saldo amortizable (arriba) → resta exacta, sin clamp.
   const deudaPrestamos = roundBs(deudaAmortizable - amortizacion);
   const deudaPrestamosFinal = deudaPrestamos;
-  // Deuda final = préstamos + sobregiro acumulado + su interés (pasivo, no caja)
-  const deudaFinal = roundBs(deudaPrestamos + sobregiroAcumulado + interesSobregiro);
+  // Deuda final = préstamos + sobregiro acumulado + interés de sobregiro ACUMULADO
+  // (este último se propaga como pasivo, ya no se pierde al pasar de ronda).
+  const deudaFinal = roundBs(deudaPrestamos + sobregiroAcumulado + interesSobregiroAcumulado);
 
   // Activos fijos netos
   const afNetos = roundBs((d.activosFijosIniciales || params.activosFijosIniciales) - params.depreciacionTrimestral);
@@ -459,7 +464,7 @@ function calcularResultadosFinancieros(d, ventas, costoUnitario, gastoTotalMarke
     cajaInicial, cobrosContado, ingresoPrestamo,
     pagoProduccion, pagoMktTotal, pagoAdmin, pagoPlanta,
     pagoInnovacion, pagoAlmacen, pagoIntereses, pagoApertura, pagoAmortizacion,
-    totalPagos, sobregiro, sobregiroAcumulado, cajaFinal,
+    totalPagos, sobregiro, sobregiroAcumulado, interesSobregiroAcumulado, cajaFinal,
 
     // Balance
     cxcFinal, invFinalValorizado, afNetos,
