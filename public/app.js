@@ -64,17 +64,24 @@ function setupNav(screenId) {
       document.getElementById(btn.dataset.view)?.classList.add('active');
       const titles = {
         'admin-simulaciones':'Simulaciones', 'admin-dashboard':'Dashboard', 'admin-equipos':'Equipos',
-        'admin-rondas':'Control de Rondas', 'admin-resultados':'Resultados',
+        'admin-rondas':'Control de Rondas', 'admin-examenes':'Exámenes', 'admin-resultados':'Resultados',
         'admin-financiero':'Estados Financieros',
         'admin-mercado':'Mercado', 'admin-parametros':'Parámetros',
         'admin-segmentos':'Segmentos',
-        'eq-hoja':'Hoja de Decisión', 'eq-financiero':'Estados Financieros',
+        'eq-hoja':'Hoja de Decisión', 'eq-examen-innovacion':'Examen de Innovación', 'eq-financiero':'Estados Financieros',
         'eq-resultados':'KPIs', 'eq-creditos':'Mis Créditos', 'eq-reportes':'Investigación y Ranking',
         'admin-creditos':'Reporte de Créditos', 'admin-afinidad':'Matriz de Afinidad', 'admin-competencia':'Competencia Externa',
         'admin-posicionamiento':'Mapa de Posicionamiento', 'eq-posicionamiento':'Mapa de Posicionamiento',
       };
       const tt = document.getElementById(screenId === 'screen-admin' ? 'adminTopTitle' : 'equipoTopTitle');
       if (tt) tt.textContent = titles[btn.dataset.view] || '';
+      if (screenId === 'screen-equipo') {
+        const examView = btn.dataset.view === 'eq-examen-innovacion';
+        ['btnGuardar', 'btnEnviar'].forEach(id => {
+          const actionBtn = document.getElementById(id);
+          if (actionBtn) actionBtn.style.display = examView ? 'none' : '';
+        });
+      }
       if (btn.dataset.view === 'admin-simulaciones') loadAdminSimulaciones();
       if (btn.dataset.view === 'eq-hoja') loadHojaDecision();
       if (btn.dataset.view === 'eq-financiero') loadEquipoFinanciero();
@@ -90,12 +97,14 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-dashboard') loadAdminDashboard();
       if (btn.dataset.view === 'admin-equipos') loadAdminEquipos();
       if (btn.dataset.view === 'admin-rondas') loadAdminRondas();
+      if (btn.dataset.view === 'admin-examenes') loadAdminExamenes();
       if (btn.dataset.view === 'admin-resultados') loadAdminResultados();
       if (btn.dataset.view === 'admin-financiero') loadAdminFinanciero();
       if (btn.dataset.view === 'admin-mercado') loadAdminMercado();
       if (btn.dataset.view === 'admin-parametros') loadAdminParametros();
       if (btn.dataset.view === 'admin-segmentos') loadAdminSegmentos();
       if (btn.dataset.view === 'admin-profesores') loadAdminProfesores();
+      if (btn.dataset.view === 'eq-examen-innovacion') loadEquipoExamenInnovacion();
       if (btn.dataset.view === 'eq-manual') { buildManual(); }
     });
   });
@@ -1089,6 +1098,69 @@ async function loadAdminResultados(rondaNum) {
 
 window.loadAdminResultados = loadAdminResultados;
 
+async function loadAdminExamenes() {
+  const el = document.getElementById('adminExamenesContent');
+  if (!requireSimSelected('adminExamenesContent')) return;
+  try {
+    const data = await api('GET', '/admin/examenes');
+    const innovacion = data.examenes?.innovacion || {};
+    const estadoInnovacion = innovacion.activado
+      ? `<span class="badge badge-ok">Activado</span>`
+      : `<span class="badge badge-pending">No activado</span>`;
+    el.innerHTML = `
+      <div class="section-header">
+        <div>
+          <h2>🧪 Exámenes de cierre</h2>
+          <p>Activa exámenes independientes sin alterar las rondas oficiales.</p>
+        </div>
+      </div>
+
+      <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <h3 style="margin:0 0 8px;font-size:1rem">Examen de Innovación y Viabilidad Financiera</h3>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:.82rem;color:var(--text2)">
+              <span>Estado: ${estadoInnovacion}</span>
+              <span>Habilitado desde ronda: <strong>${innovacion.habilitadoDesdeRonda ?? 10}</strong></span>
+              <span>Ronda activación: <strong>${innovacion.rondaActivacion ?? '—'}</strong></span>
+              <span>Ronda actual: <strong>${data.currentRound ?? '—'}</strong></span>
+            </div>
+          </div>
+          <button class="btn btn-success" id="btnActivarExamenInnovacion" ${innovacion.activado ? 'disabled' : ''}>
+            Activar Examen de Innovación
+          </button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <div class="result-round-card" style="padding:14px 16px;opacity:.72">
+          <h3 style="margin:0 0 6px;font-size:.92rem">Marketing</h3>
+          <span class="badge badge-pending">Pendiente</span>
+          <p style="margin:8px 0 0;color:var(--text3);font-size:.78rem">No implementado en esta fase.</p>
+        </div>
+        <div class="result-round-card" style="padding:14px 16px;opacity:.72">
+          <h3 style="margin:0 0 6px;font-size:.92rem">Publicidad</h3>
+          <span class="badge badge-pending">Pendiente</span>
+          <p style="margin:8px 0 0;color:var(--text3);font-size:.78rem">No implementado en esta fase.</p>
+        </div>
+      </div>`;
+
+    document.getElementById('btnActivarExamenInnovacion')?.addEventListener('click', async () => {
+      try {
+        const res = await api('POST', '/admin/examenes/innovacion/activar');
+        toast(`✓ Examen activado en ronda ${res.rondaActivacion}`, 'success');
+        await loadAdminExamenes();
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p style="color:var(--accent4)">${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+window.loadAdminExamenes = loadAdminExamenes;
+
 async function loadAdminFinanciero(rondaNum, equipoId) {
   const el = document.getElementById('adminFinancieroContent');
   if (!requireSimSelected('adminFinancieroContent')) return;
@@ -1160,6 +1232,207 @@ async function loadAdminFinanciero(rondaNum, equipoId) {
 }
 
 window.loadAdminFinanciero = loadAdminFinanciero;
+
+const EXAMEN_INNOVACION_EDITABLES = [
+  'innovacion', 'tipoInnovacion', 'montoInnovacion', 'tipoInvestigacion',
+  'produccion', 'tipoPrestamo', 'montoPrestamo', 'plazoPrestamo', 'amortizacion',
+];
+
+const EXAMEN_INNOVACION_HEREDADOS = [
+  'producto', 'segmentoObjetivo', 'calidad', 'precioVenta', 'canalPrincipal',
+  'canalSecundario', 'publicidad', 'promocion', 'eventos', 'marketingRedes',
+  'relacionesPublicas', 'contratarVendedores', 'despedirVendedores',
+];
+
+const EXAMEN_INNOVACION_ANALISIS = [
+  'impactoEstadoResultados', 'impactoBalanceGeneral', 'impactoFlujoCaja',
+  'kpisEsperados', 'riesgosFinancieros',
+];
+
+async function loadEquipoExamenInnovacion() {
+  const el = document.getElementById('eqExamenInnovacionContent');
+  if (!el) return;
+  try {
+    const estado = await api('GET', '/api/examenes');
+    const innovacion = estado.examenes?.innovacion;
+    if (!innovacion?.activado) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🧪</div><p>El examen de Innovación aún no está activado.</p></div>`;
+      return;
+    }
+    const data = await api('GET', '/api/examenes/innovacion');
+    renderEquipoExamenInnovacion(el, data);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p style="color:var(--accent4)">${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function examenVal(v) {
+  return v === undefined || v === null || v === '' ? '—' : escapeHtml(String(v));
+}
+
+function examenMoneyMaybe(k, v) {
+  return ['precioVenta','publicidad','promocion','eventos','marketingRedes','relacionesPublicas'].includes(k)
+    ? fmt.bs(v)
+    : examenVal(v);
+}
+
+function renderEquipoExamenInnovacion(el, data) {
+  const examen = data.examen || {};
+  const heredada = examen.estadoHeredado?.decision || {};
+  const decision = { ...heredada, ...(examen.decisionExamen || {}) };
+  const analisis = examen.analisisFinanciero || {};
+  const disabled = examen.submitted ? 'disabled' : '';
+  const readRows = EXAMEN_INNOVACION_HEREDADOS.map(k => `
+    <div class="kpi-row">
+      <span class="kpi-label">${k}</span>
+      <span class="kpi-value">${examenMoneyMaybe(k, heredada[k])}</span>
+    </div>`).join('');
+  const resultado = examen.submitted ? renderResultadoExamenInnovacion(examen) : '';
+
+  el.innerHTML = `
+    <div class="section-header">
+      <div>
+        <h2>🧪 Examen de Innovación y Viabilidad Financiera</h2>
+        <p>Ronda de activación ${data.rondaActivacion}. Los campos heredados son sólo lectura.</p>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Estado heredado bloqueado</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 24px">
+        ${readRows}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Decisión del examen</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <label class="form-label">Innovación
+          <select class="form-input" data-exam-field="innovacion" ${disabled}>
+            <option value="false" ${!decision.innovacion?'selected':''}>No</option>
+            <option value="true" ${decision.innovacion?'selected':''}>Sí</option>
+          </select>
+        </label>
+        <label class="form-label">Tipo de innovación
+          <select class="form-input" data-exam-field="tipoInnovacion" ${disabled}>
+            ${['','Producto','Proceso','Modelo de negocio'].map(v=>`<option value="${v}" ${decision.tipoInnovacion===v?'selected':''}>${v || 'Seleccionar'}</option>`).join('')}
+          </select>
+        </label>
+        <label class="form-label">Monto innovación
+          <input class="form-input" type="number" min="0" step="500" data-exam-field="montoInnovacion" value="${decision.montoInnovacion || 0}" ${disabled}>
+        </label>
+        <label class="form-label">Tipo investigación
+          <select class="form-input" data-exam-field="tipoInvestigacion" ${disabled}>
+            ${['No','Básica','Basica','Premium'].map(v=>`<option value="${v}" ${decision.tipoInvestigacion===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </label>
+        <label class="form-label">Producción
+          <input class="form-input" type="number" min="0" step="500" data-exam-field="produccion" value="${decision.produccion || 0}" ${disabled}>
+        </label>
+        <label class="form-label">Tipo préstamo
+          <select class="form-input" data-exam-field="tipoPrestamo" ${disabled}>
+            ${['Ninguno','Operativo','Inversión','Inversion'].map(v=>`<option value="${v}" ${decision.tipoPrestamo===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </label>
+        <label class="form-label">Monto préstamo
+          <input class="form-input" type="number" min="0" step="1000" data-exam-field="montoPrestamo" value="${decision.montoPrestamo || 0}" ${disabled}>
+        </label>
+        <label class="form-label">Plazo préstamo
+          <input class="form-input" type="number" min="0" step="1" data-exam-field="plazoPrestamo" value="${decision.plazoPrestamo || 0}" ${disabled}>
+        </label>
+        <label class="form-label">Amortización
+          <input class="form-input" type="number" min="0" step="1000" data-exam-field="amortizacion" value="${decision.amortizacion || 0}" ${disabled}>
+        </label>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Justificación y análisis financiero</h3>
+      <label class="form-label">Justificación estratégica
+        <textarea class="form-input" data-exam-text="justificacionEstrategica" rows="5" ${disabled}>${escapeHtml(examen.justificacionEstrategica || '')}</textarea>
+      </label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
+        ${EXAMEN_INNOVACION_ANALISIS.map(k => `
+          <label class="form-label">${k}
+            <textarea class="form-input" data-exam-analisis="${k}" rows="4" ${disabled}>${escapeHtml(analisis[k] || '')}</textarea>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        ${examen.submitted
+          ? `<span class="badge badge-ok">Enviado</span>`
+          : `<button class="btn btn-ghost" id="btnGuardarExamenInnovacion">Guardar borrador del examen</button>
+             <button class="btn btn-success" id="btnEnviarExamenInnovacion">Enviar examen</button>`}
+      </div>
+    </div>
+    ${resultado}`;
+
+  document.getElementById('btnGuardarExamenInnovacion')?.addEventListener('click', () => guardarExamenInnovacion(false));
+  document.getElementById('btnEnviarExamenInnovacion')?.addEventListener('click', () => guardarExamenInnovacion(true));
+}
+
+function collectExamenInnovacionPayload() {
+  const decisionExamen = {};
+  document.querySelectorAll('[data-exam-field]').forEach(el => {
+    const k = el.dataset.examField;
+    if (!EXAMEN_INNOVACION_EDITABLES.includes(k)) return;
+    decisionExamen[k] = el.value;
+    if (el.type === 'number') decisionExamen[k] = +el.value;
+    if (k === 'innovacion') decisionExamen[k] = el.value === 'true';
+  });
+  const analisisFinanciero = {};
+  document.querySelectorAll('[data-exam-analisis]').forEach(el => {
+    const k = el.dataset.examAnalisis;
+    if (EXAMEN_INNOVACION_ANALISIS.includes(k)) analisisFinanciero[k] = el.value;
+  });
+  return {
+    decisionExamen,
+    justificacionEstrategica: document.querySelector('[data-exam-text="justificacionEstrategica"]')?.value || '',
+    analisisFinanciero,
+  };
+}
+
+async function guardarExamenInnovacion(enviar) {
+  try {
+    const payload = collectExamenInnovacionPayload();
+    const url = enviar ? '/api/examenes/innovacion/enviar' : '/api/examenes/innovacion/guardar';
+    await api('POST', url, payload);
+    toast(enviar ? '✓ Examen enviado' : '💾 Borrador guardado', 'success');
+    await loadEquipoExamenInnovacion();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function renderResultadoExamenInnovacion(examen) {
+  const r = examen.resultadoSimulado || {};
+  const rubrica = examen.rubrica?.items || [];
+  return `
+    <div class="result-round-card" style="padding:16px 20px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Resultado del examen</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge badge-ok">submitted: ${examen.submitted ? 'true' : 'false'}</span>
+        <span class="badge">submittedAt: ${fmt.dt(examen.submittedAt)}</span>
+        <span class="badge badge-simulated">Nota final: ${examen.notaFinal ?? '—'}</span>
+      </div>
+      <div class="table-wrap" style="margin-bottom:16px">
+        <table>
+          <thead><tr><th>Criterio</th><th class="num">Puntos</th><th class="num">Máx.</th><th>Comentario</th></tr></thead>
+          <tbody>${rubrica.map(i => `<tr><td>${escapeHtml(i.nombre || '')}</td><td class="num">${i.puntos}</td><td class="num">${i.max}</td><td>${escapeHtml(i.comentario || '')}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+        ${[
+          ['Ventas netas', fmt.bs(r.ventasNetas)],
+          ['Utilidad neta', fmt.bs(r.utilidadNeta)],
+          ['Caja final', fmt.bs(r.cajaFinal)],
+          ['Deuda final', fmt.bs(r.deudaFinal)],
+          ['Inventario final', fmt.num(r.inventarioFinal)],
+          ['Atractivo', fmt.d(r.atractivo,2)],
+          ['Costo unitario', fmt.d(r.costoUnitario,2)],
+        ].map(([k,v]) => `<div class="kpi-row"><span class="kpi-label">${k}</span><span class="kpi-value">${v}</span></div>`).join('')}
+      </div>
+    </div>`;
+}
 
 function buildAdminChartsHTML(rd, n) {
   return `
