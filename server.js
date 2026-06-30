@@ -14,6 +14,8 @@ const { hashPassword, verifyPassword } = require('./src/auth');
 const storage  = require('./src/storage');
 const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, normalizarDecision, sembrarSaldosIniciales } = require('./src/engine');
 const { generarReportes } = require('./src/reports');
+const { normalizarConfigExamenes, prepararEstadoHeredado } = require('./src/examenes.helpers');
+const { validarInputInnovacion, calcularExamenInnovacion } = require('./src/examenes.innovacion');
 
 const PORT = process.env.PORT || 3000;
 console.log('[server] DATABASE_URL definida?', process.env.DATABASE_URL ? 'Sí' : 'No');
@@ -168,13 +170,71 @@ async function recalcularEnCadena(simId, inicio, ownerId) {
 }
 
 // ── Ruta principal ─────────────────────────────────────────────
+function _ultimaRondaSimuladaAntesDe(sim, rondaActivacion) {
+  const rondas = sim.rondas || {};
+  return Object.keys(rondas)
+    .map(n => parseInt(n, 10))
+    .filter(n => Number.isFinite(n) && n < rondaActivacion && rondas[String(n)]?.estado === 'simulated')
+    .sort((a, b) => a - b)
+    .pop() || null;
+}
+
+function _examenInnovacionBase(estadoHeredado) {
+  return {
+    estadoHeredado,
+    decisionExamen: {},
+    justificacionEstrategica: '',
+    analisisFinanciero: {
+      impactoEstadoResultados: '',
+      impactoBalanceGeneral: '',
+      impactoFlujoCaja: '',
+      kpisEsperados: '',
+      riesgosFinancieros: '',
+    },
+    resultadoSimulado: {},
+    rubrica: {},
+    notaFinal: null,
+    submitted: false,
+    submittedAt: null,
+  };
+}
+
+function _getExamenInnovacion(ronda, equipoId, estadoHeredado) {
+  return {
+    ..._examenInnovacionBase(estadoHeredado),
+    ...(ronda.examenes?.innovacion?.[equipoId] || {}),
+    estadoHeredado,
+  };
+}
+
+async function _guardarExamenInnovacion(sim, rondaActivacion, equipoId, examen) {
+  const ronda = await storage.getRonda(sim.id, rondaActivacion);
+  if (!ronda) {
+    const err = new Error('Ronda de activacion no encontrada');
+    err.status = 404;
+    throw err;
+  }
+  const examenes = {
+    ...(ronda.examenes || {}),
+    innovacion: {
+      ...((ronda.examenes || {}).innovacion || {}),
+      [equipoId]: examen,
+    },
+  };
+  await storage.updateRonda(sim.id, rondaActivacion, { examenes });
+}
+
+function _sendExamError(res, err) {
+  return send(res, err.status || 500, { error: err.status ? err.message : 'Error interno del servidor' });
+}
+
 async function route(req, res, body) {
   const url    = req.url.split('?')[0];
   const method = req.method;
   const session = getSession(req);
   const s = session || null;
 
-  const isAdmin = () => s?.rol === 'superadmin' || s?.rol === 'profesor';
+  const isAdmin = () => s?.rol === 'admin' || s?.rol === 'superadmin' || s?.rol === 'profesor';
   const isSuperAdmin = () => s?.rol === 'superadmin';
   const isEquipo = () => s?.rol === 'equipo';
   const needAdmin = () => {
@@ -794,6 +854,46 @@ async function route(req, res, body) {
     return send(res, 200, hist);
   }
 
+  // ─── ADMIN — Examenes ─────────────────────────────────────
+  if (url === '/admin/examenes' && method === 'GET') {
+    if (needAdmin()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    const config = normalizarConfigExamenes(sim.config);
+    return send(res, 200, {
+      currentRound: config.currentRound,
+      totalRounds: config.totalRounds,
+      roundState: config.roundState,
+      examenes: config.examenes,
+      rondasPractica: config.rondasPractica,
+    });
+  }
+
+  if (url === '/admin/examenes/innovacion/activar' && method === 'POST') {
+    if (needAdmin()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.innovacion;
+      const currentRound = +config.currentRound;
+      if (ex.activado) {
+        return send(res, 400, { error: 'El examen de innovacion ya esta activado' });
+      }
+      if (currentRound < ex.habilitadoDesdeRonda) {
+        return send(res, 400, { error: `El examen de innovacion se habilita desde la ronda ${ex.habilitadoDesdeRonda}` });
+      }
+      const rondaBase = _ultimaRondaSimuladaAntesDe(sim, currentRound);
+      if (!rondaBase) {
+        return send(res, 400, { error: 'No existe una ronda simulada anterior' });
+      }
+      ex.activado = true;
+      ex.rondaActivacion = currentRound;
+      await storage.updateSimulacion(sim.id, { config });
+      return send(res, 200, { ok: true, tipo: 'innovacion', rondaActivacion: currentRound, rondaBase });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
   // ─── ADMIN — Config ───────────────────────────────────────────
   if (url === '/admin/config' && method === 'GET') {
     if (needAdmin()) return;
@@ -1044,6 +1144,127 @@ async function route(req, res, body) {
     const ownerId = user.rol !== 'superadmin' ? user.id : null;
     const { status, body: payload } = await recalcularEnCadena(simId, inicio, ownerId);
     return send(res, status, payload);
+  }
+
+  // ─── EQUIPO — Examenes ───────────────────────────────────────
+  if (url === '/api/examenes' && method === 'GET') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    const config = normalizarConfigExamenes(sim.config);
+    return send(res, 200, {
+      currentRound: config.currentRound,
+      roundState: config.roundState,
+      examenes: {
+        innovacion: config.examenes.innovacion,
+      },
+    });
+  }
+
+  if (url === '/api/examenes/innovacion' && method === 'GET') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const equipoId = s.userId;
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.innovacion;
+      if (!ex.activado || !ex.rondaActivacion) {
+        return send(res, 404, { error: 'Examen de innovacion no activado' });
+      }
+      const ronda = await storage.getRonda(sim.id, ex.rondaActivacion);
+      if (!ronda) return send(res, 404, { error: 'Ronda de activacion no encontrada' });
+      const estadoHeredado = prepararEstadoHeredado(sim, equipoId, ex.rondaActivacion);
+      const examen = _getExamenInnovacion(ronda, equipoId, estadoHeredado);
+      return send(res, 200, {
+        tipo: 'innovacion',
+        rondaActivacion: ex.rondaActivacion,
+        examen,
+      });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
+  if (url === '/api/examenes/innovacion/guardar' && method === 'POST') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const equipoId = s.userId;
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.innovacion;
+      if (!ex.activado || !ex.rondaActivacion) {
+        return send(res, 404, { error: 'Examen de innovacion no activado' });
+      }
+      const ronda = await storage.getRonda(sim.id, ex.rondaActivacion);
+      if (!ronda) return send(res, 404, { error: 'Ronda de activacion no encontrada' });
+      const estadoHeredado = prepararEstadoHeredado(sim, equipoId, ex.rondaActivacion);
+      const actual = _getExamenInnovacion(ronda, equipoId, estadoHeredado);
+      if (actual.submitted) return send(res, 400, { error: 'El examen ya fue enviado' });
+      const input = validarInputInnovacion(body, { enviar: false });
+      const examen = {
+        ...actual,
+        decisionExamen: { ...(actual.decisionExamen || {}), ...input.decisionExamen },
+        justificacionEstrategica: input.justificacionEstrategica,
+        analisisFinanciero: input.analisisFinanciero,
+        submitted: false,
+        submittedAt: null,
+      };
+      await _guardarExamenInnovacion(sim, ex.rondaActivacion, equipoId, examen);
+      return send(res, 200, { ok: true, examen });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
+  if (url === '/api/examenes/innovacion/enviar' && method === 'POST') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const equipoId = s.userId;
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.innovacion;
+      if (!ex.activado || !ex.rondaActivacion) {
+        return send(res, 404, { error: 'Examen de innovacion no activado' });
+      }
+      const ronda = await storage.getRonda(sim.id, ex.rondaActivacion);
+      if (!ronda) return send(res, 404, { error: 'Ronda de activacion no encontrada' });
+      const estadoHeredado = prepararEstadoHeredado(sim, equipoId, ex.rondaActivacion);
+      const actual = _getExamenInnovacion(ronda, equipoId, estadoHeredado);
+      if (actual.submitted) return send(res, 400, { error: 'El examen ya fue enviado' });
+      const parcial = validarInputInnovacion(body, { enviar: false });
+      const combinado = {
+        decisionExamen: { ...(actual.decisionExamen || {}), ...parcial.decisionExamen },
+        justificacionEstrategica: parcial.justificacionEstrategica || actual.justificacionEstrategica,
+        analisisFinanciero: {
+          ...(actual.analisisFinanciero || {}),
+          ...Object.fromEntries(Object.entries(parcial.analisisFinanciero || {}).filter(([, v]) => v)),
+        },
+      };
+      const input = validarInputInnovacion(combinado, { enviar: true });
+      const calculado = calcularExamenInnovacion({
+        sim,
+        equipoId,
+        rondaActivacion: ex.rondaActivacion,
+        estadoHeredado,
+        input,
+      });
+      const examen = {
+        ...actual,
+        estadoHeredado,
+        decisionExamen: calculado.decisionExamen,
+        justificacionEstrategica: input.justificacionEstrategica,
+        analisisFinanciero: input.analisisFinanciero,
+        resultadoSimulado: calculado.resultadoSimulado,
+        rubrica: calculado.rubrica,
+        notaFinal: calculado.notaFinal,
+        tendencia: calculado.tendencia,
+        submitted: true,
+        submittedAt: new Date().toISOString(),
+      };
+      await _guardarExamenInnovacion(sim, ex.rondaActivacion, equipoId, examen);
+      return send(res, 200, { ok: true, examen });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
   }
 
   // ─── EQUIPO — Decisiones ──────────────────────────────────────
