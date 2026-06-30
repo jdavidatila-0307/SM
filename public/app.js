@@ -65,6 +65,7 @@ function setupNav(screenId) {
       const titles = {
         'admin-simulaciones':'Simulaciones', 'admin-dashboard':'Dashboard', 'admin-equipos':'Equipos',
         'admin-rondas':'Control de Rondas', 'admin-resultados':'Resultados',
+        'admin-financiero':'Estados Financieros',
         'admin-mercado':'Mercado', 'admin-parametros':'Parámetros',
         'admin-segmentos':'Segmentos',
         'eq-hoja':'Hoja de Decisión', 'eq-financiero':'Estados Financieros',
@@ -90,6 +91,7 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-equipos') loadAdminEquipos();
       if (btn.dataset.view === 'admin-rondas') loadAdminRondas();
       if (btn.dataset.view === 'admin-resultados') loadAdminResultados();
+      if (btn.dataset.view === 'admin-financiero') loadAdminFinanciero();
       if (btn.dataset.view === 'admin-mercado') loadAdminMercado();
       if (btn.dataset.view === 'admin-parametros') loadAdminParametros();
       if (btn.dataset.view === 'admin-segmentos') loadAdminSegmentos();
@@ -1086,6 +1088,78 @@ async function loadAdminResultados(rondaNum) {
 }
 
 window.loadAdminResultados = loadAdminResultados;
+
+async function loadAdminFinanciero(rondaNum, equipoId) {
+  const el = document.getElementById('adminFinancieroContent');
+  if (!requireSimSelected('adminFinancieroContent')) return;
+
+  const [hist, equipos] = await Promise.all([
+    api('GET','/admin/historial'),
+    api('GET','/admin/equipos'),
+  ]);
+
+  if (!hist.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><p>No hay rondas creadas aún</p></div>`;
+    return;
+  }
+
+  const simuladas = hist.filter(h => h.estado === 'simulated');
+  const lastSimulada = simuladas[simuladas.length - 1];
+  const lastHist = hist[hist.length - 1];
+  const selectedRound = rondaNum || lastSimulada?.ronda || lastHist?.ronda;
+  const selectedEquipo = equipoId || equipos[0]?.id || '';
+  const roundOptions = hist.map(h =>
+    `<option value="${h.ronda}" ${h.ronda===selectedRound?'selected':''}>Ronda ${h.ronda}${h.estado==='simulated'?'':' - no simulada'}</option>`
+  ).join('');
+  const equipoOptions = equipos.map(eq =>
+    `<option value="${escapeHtml(eq.id)}" ${eq.id===selectedEquipo?'selected':''}>${escapeHtml(eq.nombre || eq.id)}</option>`
+  ).join('');
+
+  const controls = `
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:.78rem;color:var(--text2)">
+          Ronda simulada
+          <select id="adminFinRonda" class="input" style="min-width:180px">${roundOptions}</select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:.78rem;color:var(--text2)">
+          Equipo
+          <select id="adminFinEquipo" class="input" style="min-width:220px">${equipoOptions}</select>
+        </label>
+      </div>
+    </div>
+    <div id="adminFinancieroDetalle"></div>`;
+
+  el.innerHTML = controls;
+  document.getElementById('adminFinRonda')?.addEventListener('change', e => loadAdminFinanciero(parseInt(e.target.value), selectedEquipo));
+  document.getElementById('adminFinEquipo')?.addEventListener('change', e => loadAdminFinanciero(selectedRound, e.target.value));
+
+  const detail = document.getElementById('adminFinancieroDetalle');
+  const histItem = hist.find(h => h.ronda === selectedRound);
+  if (!histItem || histItem.estado !== 'simulated') {
+    detail.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><p>La ronda aún no tiene estados financieros calculados</p></div>`;
+    return;
+  }
+  if (!selectedEquipo) {
+    detail.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>No hay equipos registrados en esta simulación</p></div>`;
+    return;
+  }
+
+  try {
+    const rd = await api('GET',`/admin/resultados/${selectedRound}`);
+    const resultado = (rd.resultados || []).find(r => r.equipo === selectedEquipo);
+    if (!resultado) {
+      detail.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><p>Sin resultado financiero para este equipo en esta ronda</p></div>`;
+      return;
+    }
+    detail.innerHTML = renderFinancieroHTML(selectedRound, resultado, { showDownloads: false });
+    showFinTab('pl');
+  } catch {
+    detail.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><p>La ronda aún no tiene estados financieros calculados</p></div>`;
+  }
+}
+
+window.loadAdminFinanciero = loadAdminFinanciero;
 
 function buildAdminChartsHTML(rd, n) {
   return `
@@ -2360,14 +2434,19 @@ window.mostrarFinanciero = (n) => {
   if (!item || !el) return;
   const r = item.resultado;
 
-  el.innerHTML = `
+  el.innerHTML = renderFinancieroHTML(n, r, { showDownloads: true });
+};
+
+function renderFinancieroHTML(n, r, opts = {}) {
+  const showDownloads = opts.showDownloads !== false;
+  return `
   <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
     <button class="btn btn-ghost" id="tabPL" onclick="showFinTab('pl')" style="background:var(--accent);color:#fff">📋 Estado de Resultados</button>
     <button class="btn btn-ghost" id="tabBG" onclick="showFinTab('bg')">🏦 Balance General</button>
     <button class="btn btn-ghost" id="tabFC" onclick="showFinTab('fc')">💧 Flujo de Efectivo</button>
     <span style="flex:1"></span>
-    <button class="btn btn-ghost" onclick="descargarFinancieroExcel(${n})">📊 Descargar Excel</button>
-    <button class="btn btn-ghost" onclick="descargarFinancieroPDF(${n})">📄 Descargar PDF</button>
+    ${showDownloads ? `<button class="btn btn-ghost" onclick="descargarFinancieroExcel(${n})">📊 Descargar Excel</button>
+    <button class="btn btn-ghost" onclick="descargarFinancieroPDF(${n})">📄 Descargar PDF</button>` : ''}
   </div>
 
   <!-- Estado de Resultados -->
@@ -2469,7 +2548,7 @@ window.mostrarFinanciero = (n) => {
       </div>
     </div>
   </div>`;
-};
+}
 
 function finRow(label, value, bold=false, type='neutral') {
   const col = type==='pos' ? 'var(--accent5)' : type==='neg' ? 'var(--accent4)' : 'var(--text)';
