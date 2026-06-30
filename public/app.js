@@ -371,10 +371,10 @@ async function loadAdminSimulaciones() {
               ? `<button class="btn btn-success btn-sm" onclick="seleccionarSim('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')">▶ Acceder a esta simulación</button>
                  <button class="btn btn-ghost btn-sm" onclick="copiarCodigo('${sim.codigoAcceso||''}')">📋 Copiar código</button>
                  <button class="btn btn-ghost btn-sm" onclick="archivarSim('${sim.id}')">📦 Archivar</button>
-                 <button class="btn btn-ghost btn-sm" onclick="recalcularSimulacion('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" title="Repara valores negativos y balances descuadrados">🔄 Recalcular</button>
+                 <button class="btn btn-ghost btn-sm" onclick="recalcularSimulacion('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" title="Recálculo completo desde R1 con verificación de balance (descuadrePatrimonio ≤ 0.01)">🔄 Recalcular</button>
                  <button class="btn btn-ghost btn-sm" onclick="eliminarSim('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" style="color:var(--accent4)">✕ Eliminar</button>`
               : `<button class="btn btn-ghost btn-sm" onclick="activarSim('${sim.id}')">♻ Reactivar</button>
-                 <button class="btn btn-ghost btn-sm" onclick="recalcularSimulacion('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" title="Repara valores negativos y balances descuadrados">🔄 Recalcular</button>
+                 <button class="btn btn-ghost btn-sm" onclick="recalcularSimulacion('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" title="Recálculo completo desde R1 con verificación de balance (descuadrePatrimonio ≤ 0.01)">🔄 Recalcular</button>
                  <button class="btn btn-ghost btn-sm" onclick="eliminarSim('${sim.id}','${sim.nombre.replace(/'/g,"\\'")}')" style="color:var(--accent4)">✕ Eliminar</button>`}
           </div>
         </div>`;
@@ -3519,11 +3519,20 @@ async function doLogout() {
 
 // ── RECALCULADOR ────────────────────────────────────────────
 async function recalcularSimulacion(simId, nombre) {
-  if (!confirm(`¿Recalcular TODAS las rondas simuladas de "${nombre}"?\n\nSe sobrescribirán los resultados actuales.`)) return;
+  if (!confirm(`¿Recalcular "${nombre}" desde la Ronda 1?\n\nSe sobrescribirán los resultados actuales, con verificación de balance por ronda (se detiene sin escribir si alguna ronda no cuadra).`)) return;
   try {
     toast('Recalculando...', 'info');
-    const res = await api('POST', '/admin/recalcular-simulacion', { simId });
-    toast(`✓ "${nombre}": ${res.rondasReparadas} rondas reparadas.`, 'success');
+    const res = await api('POST', '/admin/recalcular-completa', { simId });
+    const nRondas = res.rondasProcesadas?.length ?? 0;
+    const motivo = res.detenidoEn?.motivo;
+    // Motivos NORMALES de parada: fin natural de la cadena. Cualquier otro motivo
+    // (o ausencia de motivo) es inesperado → se marca con ⚠️ aunque sea HTTP 200.
+    const motivosNormales = ['cadena-completa', 'siguiente-no-simulada'];
+    if (motivo && motivosNormales.includes(motivo)) {
+      toast(`✓ "${nombre}": ${nRondas} rondas recalculadas (fin: ${motivo}).`, 'success');
+    } else {
+      toast(`⚠️ "${nombre}": ${nRondas} rondas recalculadas, pero se detuvo por un motivo inesperado: ${motivo || 'desconocido'}. Revisa el estado de la simulación.`, 'error');
+    }
     if (state.currentSimId === simId) {
       document.querySelector('[data-view="admin-dashboard"]')?.click();
     }
