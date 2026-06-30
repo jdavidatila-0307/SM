@@ -68,7 +68,7 @@ function setupNav(screenId) {
         'admin-financiero':'Estados Financieros',
         'admin-mercado':'Mercado', 'admin-parametros':'Parámetros',
         'admin-segmentos':'Segmentos',
-        'eq-hoja':'Hoja de Decisión', 'eq-examen-innovacion':'Examen de Innovación', 'eq-financiero':'Estados Financieros',
+        'eq-hoja':'Hoja de Decisión', 'eq-examen-innovacion':'Examen de Innovación', 'eq-examen-marketing':'Examen de Marketing', 'eq-financiero':'Estados Financieros',
         'eq-resultados':'KPIs', 'eq-creditos':'Mis Créditos', 'eq-reportes':'Investigación y Ranking',
         'admin-creditos':'Reporte de Créditos', 'admin-afinidad':'Matriz de Afinidad', 'admin-competencia':'Competencia Externa',
         'admin-posicionamiento':'Mapa de Posicionamiento', 'eq-posicionamiento':'Mapa de Posicionamiento',
@@ -76,7 +76,7 @@ function setupNav(screenId) {
       const tt = document.getElementById(screenId === 'screen-admin' ? 'adminTopTitle' : 'equipoTopTitle');
       if (tt) tt.textContent = titles[btn.dataset.view] || '';
       if (screenId === 'screen-equipo') {
-        const examView = btn.dataset.view === 'eq-examen-innovacion';
+        const examView = btn.dataset.view === 'eq-examen-innovacion' || btn.dataset.view === 'eq-examen-marketing';
         ['btnGuardar', 'btnEnviar'].forEach(id => {
           const actionBtn = document.getElementById(id);
           if (actionBtn) actionBtn.style.display = examView ? 'none' : '';
@@ -107,6 +107,7 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-segmentos') loadAdminSegmentos();
       if (btn.dataset.view === 'admin-profesores') loadAdminProfesores();
       if (btn.dataset.view === 'eq-examen-innovacion') loadEquipoExamenInnovacion();
+      if (btn.dataset.view === 'eq-examen-marketing') loadEquipoExamenMarketing();
       if (btn.dataset.view === 'eq-manual') { buildManual(); }
     });
   });
@@ -1106,7 +1107,11 @@ async function loadAdminExamenes() {
   try {
     const data = await api('GET', '/admin/examenes');
     const innovacion = data.examenes?.innovacion || {};
+    const marketing = data.examenes?.marketing || {};
     const estadoInnovacion = innovacion.activado
+      ? `<span class="badge badge-ok">Activado</span>`
+      : `<span class="badge badge-pending">No activado</span>`;
+    const estadoMarketing = marketing.activado
       ? `<span class="badge badge-ok">Activado</span>`
       : `<span class="badge badge-pending">No activado</span>`;
     el.innerHTML = `
@@ -1135,10 +1140,16 @@ async function loadAdminExamenes() {
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-        <div class="result-round-card" style="padding:14px 16px;opacity:.72">
-          <h3 style="margin:0 0 6px;font-size:.92rem">Marketing</h3>
-          <span class="badge badge-pending">Pendiente</span>
-          <p style="margin:8px 0 0;color:var(--text3);font-size:.78rem">No implementado en esta fase.</p>
+        <div class="result-round-card" style="padding:14px 16px">
+          <h3 style="margin:0 0 6px;font-size:.92rem">Examen de Marketing Estratégico y Rentabilidad Comercial</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:.78rem;color:var(--text2);margin-bottom:12px">
+            <span>Estado: ${estadoMarketing}</span>
+            <span>Habilitado desde ronda: <strong>${marketing.habilitadoDesdeRonda ?? 10}</strong></span>
+            <span>Ronda activación: <strong>${marketing.rondaActivacion ?? '—'}</strong></span>
+          </div>
+          <button class="btn btn-success btn-sm" id="btnActivarExamenMarketing" ${marketing.activado ? 'disabled' : ''}>
+            Activar Examen de Marketing
+          </button>
         </div>
         <div class="result-round-card" style="padding:14px 16px;opacity:.72">
           <h3 style="margin:0 0 6px;font-size:.92rem">Publicidad</h3>
@@ -1151,6 +1162,15 @@ async function loadAdminExamenes() {
       try {
         const res = await api('POST', '/admin/examenes/innovacion/activar');
         toast(`✓ Examen activado en ronda ${res.rondaActivacion}`, 'success');
+        await loadAdminExamenes();
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    });
+    document.getElementById('btnActivarExamenMarketing')?.addEventListener('click', async () => {
+      try {
+        const res = await api('POST', '/admin/examenes/marketing/activar');
+        toast(`✓ Examen de Marketing activado en ronda ${res.rondaActivacion}`, 'success');
         await loadAdminExamenes();
       } catch (e) {
         toast(e.message, 'error');
@@ -1471,6 +1491,247 @@ function renderResultadoExamenInnovacion(examen) {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
         ${resumen.map(([k,v]) => `<div class="kpi-row"><span class="kpi-label">${k}: </span><span class="kpi-value">${v}</span></div>`).join('')}
       </div>
+    </div>`;
+}
+
+const EXAMEN_MARKETING_EDITABLES = [
+  'producto', 'segmentoObjetivo', 'calidad', 'precioVenta', 'canalPrincipal',
+  'canalSecundario', 'publicidad', 'promocion', 'eventos', 'marketingRedes',
+  'relacionesPublicas', 'produccion', 'tipoPrestamo', 'montoPrestamo',
+  'plazoPrestamo', 'amortizacion',
+];
+
+const EXAMEN_MARKETING_HEREDADOS = [
+  'innovacion', 'tipoInnovacion', 'montoInnovacion', 'tipoInvestigacion',
+  'contratarVendedores', 'despedirVendedores',
+];
+
+const EXAMEN_MARKETING_ANALISIS = [
+  'impactoEstadoResultados', 'impactoBalanceGeneral', 'impactoFlujoCaja',
+  'kpisEsperados', 'riesgosFinancieros',
+];
+
+const EXAMEN_MARKETING_LABELS = {
+  producto: 'Producto',
+  segmentoObjetivo: 'Segmento objetivo',
+  calidad: 'Calidad',
+  precioVenta: 'Precio de venta',
+  canalPrincipal: 'Canal principal',
+  canalSecundario: 'Canal secundario',
+  publicidad: 'Publicidad',
+  promocion: 'Promoción',
+  eventos: 'Eventos',
+  marketingRedes: 'Marketing en redes',
+  relacionesPublicas: 'Relaciones públicas',
+  produccion: 'Producción',
+  tipoPrestamo: 'Tipo de préstamo',
+  montoPrestamo: 'Monto del préstamo',
+  plazoPrestamo: 'Plazo del préstamo',
+  amortizacion: 'Amortización',
+  innovacion: 'Innovación',
+  tipoInnovacion: 'Tipo de innovación',
+  montoInnovacion: 'Monto de innovación',
+  tipoInvestigacion: 'Tipo de investigación',
+  contratarVendedores: 'Contratar vendedores',
+  despedirVendedores: 'Despedir vendedores',
+  impactoEstadoResultados: 'Impacto en Estado de Resultados',
+  impactoBalanceGeneral: 'Impacto en Balance General',
+  impactoFlujoCaja: 'Impacto en Flujo de Caja',
+  kpisEsperados: 'KPIs esperados',
+  riesgosFinancieros: 'Riesgos financieros',
+};
+
+async function loadEquipoExamenMarketing() {
+  const el = document.getElementById('eqExamenMarketingContent');
+  if (!el) return;
+  try {
+    const estado = await api('GET', '/api/examenes');
+    const marketing = estado.examenes?.marketing;
+    if (!marketing?.activado) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🧪</div><p>El examen de Marketing aún no está activado.</p></div>`;
+      return;
+    }
+    const data = await api('GET', '/api/examenes/marketing');
+    renderEquipoExamenMarketing(el, data);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p style="color:var(--accent4)">${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderMarketingTextField(k, decision, disabled) {
+  return `<label class="form-label">${EXAMEN_MARKETING_LABELS[k] || k}
+    <input class="form-input" data-marketing-field="${k}" value="${escapeHtml(decision[k] || '')}" ${disabled}>
+  </label>`;
+}
+
+function renderMarketingNumberField(k, decision, disabled, step = '100') {
+  return `<label class="form-label">${EXAMEN_MARKETING_LABELS[k] || k}
+    <input class="form-input" type="number" min="0" step="${step}" data-marketing-field="${k}" value="${decision[k] || 0}" ${disabled}>
+  </label>`;
+}
+
+function renderEquipoExamenMarketing(el, data) {
+  const examen = data.examen || {};
+  const heredada = examen.estadoHeredado?.decision || {};
+  const decision = { ...heredada, ...(examen.decisionExamen || {}) };
+  const analisis = examen.analisisFinanciero || {};
+  const disabled = examen.submitted ? 'disabled' : '';
+  const readRows = EXAMEN_MARKETING_HEREDADOS.map(k => `
+    <div class="kpi-row">
+      <span class="kpi-label">${EXAMEN_MARKETING_LABELS[k] || k}</span>
+      <span class="kpi-value">${examenMoneyMaybe(k, heredada[k])}</span>
+    </div>`).join('');
+  const resultado = examen.submitted ? renderResultadoExamenMarketing(examen) : '';
+  const submittedNotice = examen.submitted
+    ? `<div class="empty-state" style="margin-bottom:16px;text-align:left;align-items:flex-start">
+        <div class="empty-icon">✓</div>
+        <p><strong>Este examen ya fue enviado.</strong><br>Los campos quedan bloqueados y sólo puedes revisar la información registrada.</p>
+      </div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="section-header">
+      <div>
+        <h2>🧪 Examen de Marketing Estratégico y Rentabilidad Comercial</h2>
+        <p>Ronda de activación ${data.rondaActivacion}. Los campos heredados son sólo lectura.</p>
+      </div>
+    </div>
+    ${submittedNotice}
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Estado heredado bloqueado</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 24px">
+        ${readRows}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Decisión del examen</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        ${renderMarketingTextField('producto', decision, disabled)}
+        ${renderMarketingTextField('segmentoObjetivo', decision, disabled)}
+        ${renderMarketingNumberField('calidad', decision, disabled, '1')}
+        ${renderMarketingNumberField('precioVenta', decision, disabled, '0.1')}
+        ${renderMarketingTextField('canalPrincipal', decision, disabled)}
+        ${renderMarketingTextField('canalSecundario', decision, disabled)}
+        ${renderMarketingNumberField('publicidad', decision, disabled, '500')}
+        ${renderMarketingNumberField('promocion', decision, disabled, '500')}
+        ${renderMarketingNumberField('eventos', decision, disabled, '500')}
+        ${renderMarketingNumberField('marketingRedes', decision, disabled, '500')}
+        ${renderMarketingNumberField('relacionesPublicas', decision, disabled, '500')}
+        ${renderMarketingNumberField('produccion', decision, disabled, '500')}
+        ${renderMarketingTextField('tipoPrestamo', decision, disabled)}
+        ${renderMarketingNumberField('montoPrestamo', decision, disabled, '1000')}
+        ${renderMarketingNumberField('plazoPrestamo', decision, disabled, '1')}
+        ${renderMarketingNumberField('amortizacion', decision, disabled, '1000')}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Justificación y análisis financiero</h3>
+      <label class="form-label">Justificación estratégica
+        <textarea class="form-input" data-marketing-text="justificacionEstrategica" rows="5" ${disabled}>${escapeHtml(examen.justificacionEstrategica || '')}</textarea>
+      </label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
+        ${EXAMEN_MARKETING_ANALISIS.map(k => `
+          <label class="form-label">${EXAMEN_MARKETING_LABELS[k] || k}
+            <textarea class="form-input" data-marketing-analisis="${k}" rows="4" ${disabled}>${escapeHtml(analisis[k] || '')}</textarea>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        ${examen.submitted
+          ? `<span class="badge badge-ok">Enviado</span>`
+          : `<button class="btn btn-ghost" id="btnGuardarExamenMarketing">Guardar borrador del examen</button>
+             <button class="btn btn-success" id="btnEnviarExamenMarketing">Enviar examen</button>`}
+      </div>
+    </div>
+    ${resultado}`;
+
+  document.getElementById('btnGuardarExamenMarketing')?.addEventListener('click', () => guardarExamenMarketing(false));
+  document.getElementById('btnEnviarExamenMarketing')?.addEventListener('click', () => guardarExamenMarketing(true));
+}
+
+function collectExamenMarketingPayload() {
+  const decisionExamen = {};
+  document.querySelectorAll('[data-marketing-field]').forEach(el => {
+    const k = el.dataset.marketingField;
+    if (!EXAMEN_MARKETING_EDITABLES.includes(k)) return;
+    decisionExamen[k] = el.value;
+    if (el.type === 'number') decisionExamen[k] = +el.value;
+  });
+  const analisisFinanciero = {};
+  document.querySelectorAll('[data-marketing-analisis]').forEach(el => {
+    const k = el.dataset.marketingAnalisis;
+    if (EXAMEN_MARKETING_ANALISIS.includes(k)) analisisFinanciero[k] = el.value;
+  });
+  return {
+    decisionExamen,
+    justificacionEstrategica: document.querySelector('[data-marketing-text="justificacionEstrategica"]')?.value || '',
+    analisisFinanciero,
+  };
+}
+
+async function guardarExamenMarketing(enviar) {
+  try {
+    const payload = collectExamenMarketingPayload();
+    const url = enviar ? '/api/examenes/marketing/enviar' : '/api/examenes/marketing/guardar';
+    await api('POST', url, payload);
+    toast(enviar ? '✓ Examen de Marketing enviado' : '💾 Borrador de Marketing guardado', 'success');
+    await loadEquipoExamenMarketing();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function renderResultadoExamenMarketing(examen) {
+  const r = examen.resultadoSimulado || {};
+  const rubrica = examen.rubrica?.items || [];
+  const componentes = examen.descomposicionMarketing?.componentes || {};
+  const resumen = [
+    ['Ventas netas', fmt.bs(r.ventasNetas)],
+    ['Utilidad neta', fmt.bs(r.utilidadNeta)],
+    ['Caja final', fmt.bs(r.cajaFinal)],
+    ['Deuda final', fmt.bs(r.deudaFinal)],
+    ['Inventario final', fmt.num(r.inventarioFinal)],
+    ['Atractivo', fmt.d(r.atractivo,2)],
+    ['Costo unitario', fmt.bs(r.costoUnitario)],
+  ];
+  const mixRows = ['publicidad','promocion','eventos','marketingRedes','relacionesPublicas']
+    .filter(k => componentes[k])
+    .map(k => {
+      const c = componentes[k];
+      return `<tr>
+        <td>${EXAMEN_MARKETING_LABELS[k] || k}</td>
+        <td class="num">${fmt.bs(c.gasto)}</td>
+        <td class="num">${fmt.d(c.saturacion, 2)}</td>
+        <td class="num">${fmt.d(c.afinidad, 2)}</td>
+        <td class="num">${fmt.d(c.aporte, 2)}</td>
+        <td>${escapeHtml(c.clasificacion || '')}</td>
+      </tr>`;
+    }).join('');
+  return `
+    <div class="result-round-card" style="padding:16px 20px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Resultado del examen</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge badge-ok">submitted: ${examen.submitted ? 'true' : 'false'}</span>
+        <span class="badge">submittedAt: ${fmt.dt(examen.submittedAt)}</span>
+        <span class="badge badge-simulated">Nota final: ${examen.notaFinal ?? '—'}</span>
+      </div>
+      <div class="table-wrap" style="margin-bottom:16px">
+        <table>
+          <thead><tr><th>Criterio</th><th class="num">Puntos</th><th class="num">Máx.</th><th>Comentario</th></tr></thead>
+          <tbody>${rubrica.map(i => `<tr><td>${escapeHtml(i.nombre || '')}</td><td class="num">${i.puntos}</td><td class="num">${i.max}</td><td>${escapeHtml(i.comentario || '')}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px">
+        ${resumen.map(([k,v]) => `<div class="kpi-row"><span class="kpi-label">${k}: </span><span class="kpi-value">${v}</span></div>`).join('')}
+      </div>
+      ${mixRows ? `<div class="table-wrap">
+        <table>
+          <thead><tr><th>Componente</th><th class="num">Gasto</th><th class="num">Saturación</th><th class="num">Afinidad</th><th class="num">Aporte</th><th>Clasificación</th></tr></thead>
+          <tbody>${mixRows}</tbody>
+        </table>
+      </div>` : ''}
     </div>`;
 }
 
