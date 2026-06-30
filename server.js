@@ -16,6 +16,7 @@ const { ejecutarSimulador, calcularMercadoSegmentos, calcularPreSimulacion, norm
 const { generarReportes } = require('./src/reports');
 const { normalizarConfigExamenes, prepararEstadoHeredado } = require('./src/examenes.helpers');
 const { validarInputInnovacion, calcularExamenInnovacion } = require('./src/examenes.innovacion');
+const { validarInputMarketing, calcularExamenMarketing } = require('./src/examenes.marketing');
 
 const PORT = process.env.PORT || 3000;
 console.log('[server] DATABASE_URL definida?', process.env.DATABASE_URL ? 'Sí' : 'No');
@@ -218,6 +219,53 @@ async function _guardarExamenInnovacion(sim, rondaActivacion, equipoId, examen) 
     ...(ronda.examenes || {}),
     innovacion: {
       ...((ronda.examenes || {}).innovacion || {}),
+      [equipoId]: examen,
+    },
+  };
+  await storage.updateRonda(sim.id, rondaActivacion, { examenes });
+}
+
+function _examenMarketingBase(estadoHeredado) {
+  return {
+    estadoHeredado,
+    decisionExamen: {},
+    justificacionEstrategica: '',
+    analisisFinanciero: {
+      impactoEstadoResultados: '',
+      impactoBalanceGeneral: '',
+      impactoFlujoCaja: '',
+      kpisEsperados: '',
+      riesgosFinancieros: '',
+    },
+    resultadoSimulado: {},
+    rubrica: {},
+    notaFinal: null,
+    tendencia: {},
+    descomposicionMarketing: {},
+    submitted: false,
+    submittedAt: null,
+  };
+}
+
+function _getExamenMarketing(ronda, equipoId, estadoHeredado) {
+  return {
+    ..._examenMarketingBase(estadoHeredado),
+    ...(ronda.examenes?.marketing?.[equipoId] || {}),
+    estadoHeredado,
+  };
+}
+
+async function _guardarExamenMarketing(sim, rondaActivacion, equipoId, examen) {
+  const ronda = await storage.getRonda(sim.id, rondaActivacion);
+  if (!ronda) {
+    const err = new Error('Ronda de activacion no encontrada');
+    err.status = 404;
+    throw err;
+  }
+  const examenes = {
+    ...(ronda.examenes || {}),
+    marketing: {
+      ...((ronda.examenes || {}).marketing || {}),
       [equipoId]: examen,
     },
   };
@@ -895,6 +943,32 @@ async function route(req, res, body) {
   }
 
   // ─── ADMIN — Config ───────────────────────────────────────────
+  if (url === '/admin/examenes/marketing/activar' && method === 'POST') {
+    if (needAdmin()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.marketing;
+      const currentRound = +config.currentRound;
+      if (ex.activado) {
+        return send(res, 400, { error: 'El examen de marketing ya esta activado' });
+      }
+      if (currentRound < ex.habilitadoDesdeRonda) {
+        return send(res, 400, { error: `El examen de marketing se habilita desde la ronda ${ex.habilitadoDesdeRonda}` });
+      }
+      const rondaBase = _ultimaRondaSimuladaAntesDe(sim, currentRound);
+      if (!rondaBase) {
+        return send(res, 400, { error: 'No existe una ronda simulada anterior' });
+      }
+      ex.activado = true;
+      ex.rondaActivacion = currentRound;
+      await storage.updateSimulacion(sim.id, { config });
+      return send(res, 200, { ok: true, tipo: 'marketing', rondaActivacion: currentRound, rondaBase });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
   if (url === '/admin/config' && method === 'GET') {
     if (needAdmin()) return;
     if (!sim) return send(res, 400, { error: 'Sin simulación' });
@@ -1156,6 +1230,7 @@ async function route(req, res, body) {
       roundState: config.roundState,
       examenes: {
         innovacion: config.examenes.innovacion,
+        marketing: config.examenes.marketing,
       },
     });
   }
@@ -1268,6 +1343,114 @@ async function route(req, res, body) {
   }
 
   // ─── EQUIPO — Decisiones ──────────────────────────────────────
+  if (url === '/api/examenes/marketing' && method === 'GET') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const equipoId = s.userId;
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.marketing;
+      if (!ex.activado || !ex.rondaActivacion) {
+        return send(res, 404, { error: 'Examen de marketing no activado' });
+      }
+      const ronda = await storage.getRonda(sim.id, ex.rondaActivacion);
+      if (!ronda) return send(res, 404, { error: 'Ronda de activacion no encontrada' });
+      const estadoHeredado = prepararEstadoHeredado(sim, equipoId, ex.rondaActivacion);
+      const examen = _getExamenMarketing(ronda, equipoId, estadoHeredado);
+      return send(res, 200, {
+        tipo: 'marketing',
+        rondaActivacion: ex.rondaActivacion,
+        examen,
+      });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
+  if (url === '/api/examenes/marketing/guardar' && method === 'POST') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const equipoId = s.userId;
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.marketing;
+      if (!ex.activado || !ex.rondaActivacion) {
+        return send(res, 404, { error: 'Examen de marketing no activado' });
+      }
+      const ronda = await storage.getRonda(sim.id, ex.rondaActivacion);
+      if (!ronda) return send(res, 404, { error: 'Ronda de activacion no encontrada' });
+      const estadoHeredado = prepararEstadoHeredado(sim, equipoId, ex.rondaActivacion);
+      const actual = _getExamenMarketing(ronda, equipoId, estadoHeredado);
+      if (actual.submitted) return send(res, 400, { error: 'El examen ya fue enviado' });
+      const input = validarInputMarketing(body, { enviar: false });
+      const examen = {
+        ...actual,
+        decisionExamen: { ...(actual.decisionExamen || {}), ...input.decisionExamen },
+        justificacionEstrategica: input.justificacionEstrategica,
+        analisisFinanciero: input.analisisFinanciero,
+        submitted: false,
+        submittedAt: null,
+      };
+      await _guardarExamenMarketing(sim, ex.rondaActivacion, equipoId, examen);
+      return send(res, 200, { ok: true, examen });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
+  if (url === '/api/examenes/marketing/enviar' && method === 'POST') {
+    if (needEquipo()) return;
+    if (!sim) return send(res, 400, { error: 'Sin simulacion' });
+    try {
+      const equipoId = s.userId;
+      const config = normalizarConfigExamenes(sim.config);
+      const ex = config.examenes.marketing;
+      if (!ex.activado || !ex.rondaActivacion) {
+        return send(res, 404, { error: 'Examen de marketing no activado' });
+      }
+      const ronda = await storage.getRonda(sim.id, ex.rondaActivacion);
+      if (!ronda) return send(res, 404, { error: 'Ronda de activacion no encontrada' });
+      const estadoHeredado = prepararEstadoHeredado(sim, equipoId, ex.rondaActivacion);
+      const actual = _getExamenMarketing(ronda, equipoId, estadoHeredado);
+      if (actual.submitted) return send(res, 400, { error: 'El examen ya fue enviado' });
+      const parcial = validarInputMarketing(body, { enviar: false });
+      const combinado = {
+        decisionExamen: { ...(actual.decisionExamen || {}), ...parcial.decisionExamen },
+        justificacionEstrategica: parcial.justificacionEstrategica || actual.justificacionEstrategica,
+        analisisFinanciero: {
+          ...(actual.analisisFinanciero || {}),
+          ...Object.fromEntries(Object.entries(parcial.analisisFinanciero || {}).filter(([, v]) => v)),
+        },
+      };
+      const input = validarInputMarketing(combinado, { enviar: true });
+      const calculado = calcularExamenMarketing({
+        sim,
+        equipoId,
+        rondaActivacion: ex.rondaActivacion,
+        estadoHeredado,
+        input,
+      });
+      const examen = {
+        ...actual,
+        estadoHeredado,
+        decisionExamen: calculado.decisionExamen,
+        justificacionEstrategica: input.justificacionEstrategica,
+        analisisFinanciero: input.analisisFinanciero,
+        resultadoSimulado: calculado.resultadoSimulado,
+        rubrica: calculado.rubrica,
+        notaFinal: calculado.notaFinal,
+        tendencia: calculado.tendencia,
+        descomposicionMarketing: calculado.descomposicionMarketing,
+        submitted: true,
+        submittedAt: new Date().toISOString(),
+      };
+      await _guardarExamenMarketing(sim, ex.rondaActivacion, equipoId, examen);
+      return send(res, 200, { ok: true, examen });
+    } catch (e) {
+      return _sendExamError(res, e);
+    }
+  }
+
   if (url === '/api/decisiones' && method === 'GET') {
     if (needEquipo()) return;
     if (!sim) return send(res, 400, { error: 'Sin simulación' });
