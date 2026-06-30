@@ -81,6 +81,8 @@ function setupNav(screenId) {
           const actionBtn = document.getElementById(id);
           if (actionBtn) actionBtn.style.display = examView ? 'none' : '';
         });
+        const roundBadge = document.getElementById('equipoRoundBadge');
+        if (roundBadge) roundBadge.style.display = examView ? 'none' : '';
       }
       if (btn.dataset.view === 'admin-simulaciones') loadAdminSimulaciones();
       if (btn.dataset.view === 'eq-hoja') loadHojaDecision();
@@ -1249,6 +1251,36 @@ const EXAMEN_INNOVACION_ANALISIS = [
   'kpisEsperados', 'riesgosFinancieros',
 ];
 
+const EXAMEN_INNOVACION_LABELS = {
+  innovacion: 'Innovación',
+  tipoInnovacion: 'Tipo de innovación',
+  montoInnovacion: 'Monto de innovación',
+  tipoInvestigacion: 'Tipo de investigación',
+  produccion: 'Producción',
+  tipoPrestamo: 'Tipo de préstamo',
+  montoPrestamo: 'Monto del préstamo',
+  plazoPrestamo: 'Plazo del préstamo',
+  amortizacion: 'Amortización',
+  producto: 'Producto',
+  segmentoObjetivo: 'Segmento objetivo',
+  calidad: 'Calidad',
+  precioVenta: 'Precio de venta',
+  canalPrincipal: 'Canal principal',
+  canalSecundario: 'Canal secundario',
+  publicidad: 'Publicidad',
+  promocion: 'Promoción',
+  eventos: 'Eventos',
+  marketingRedes: 'Marketing en redes',
+  relacionesPublicas: 'Relaciones públicas',
+  contratarVendedores: 'Contratar vendedores',
+  despedirVendedores: 'Despedir vendedores',
+  impactoEstadoResultados: 'Impacto en Estado de Resultados',
+  impactoBalanceGeneral: 'Impacto en Balance General',
+  impactoFlujoCaja: 'Impacto en Flujo de Caja',
+  kpisEsperados: 'KPIs esperados',
+  riesgosFinancieros: 'Riesgos financieros',
+};
+
 async function loadEquipoExamenInnovacion() {
   const el = document.getElementById('eqExamenInnovacionContent');
   if (!el) return;
@@ -1284,10 +1316,16 @@ function renderEquipoExamenInnovacion(el, data) {
   const disabled = examen.submitted ? 'disabled' : '';
   const readRows = EXAMEN_INNOVACION_HEREDADOS.map(k => `
     <div class="kpi-row">
-      <span class="kpi-label">${k}</span>
+      <span class="kpi-label">${EXAMEN_INNOVACION_LABELS[k] || k}</span>
       <span class="kpi-value">${examenMoneyMaybe(k, heredada[k])}</span>
     </div>`).join('');
   const resultado = examen.submitted ? renderResultadoExamenInnovacion(examen) : '';
+  const submittedNotice = examen.submitted
+    ? `<div class="empty-state" style="margin-bottom:16px;text-align:left;align-items:flex-start">
+        <div class="empty-icon">✓</div>
+        <p><strong>Este examen ya fue enviado.</strong><br>Los campos quedan bloqueados y sólo puedes revisar la información registrada.</p>
+      </div>`
+    : '';
 
   el.innerHTML = `
     <div class="section-header">
@@ -1296,6 +1334,7 @@ function renderEquipoExamenInnovacion(el, data) {
         <p>Ronda de activación ${data.rondaActivacion}. Los campos heredados son sólo lectura.</p>
       </div>
     </div>
+    ${submittedNotice}
 
     <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
       <h3 style="margin:0 0 12px;font-size:.95rem">Estado heredado bloqueado</h3>
@@ -1353,7 +1392,7 @@ function renderEquipoExamenInnovacion(el, data) {
       </label>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
         ${EXAMEN_INNOVACION_ANALISIS.map(k => `
-          <label class="form-label">${k}
+          <label class="form-label">${EXAMEN_INNOVACION_LABELS[k] || k}
             <textarea class="form-input" data-exam-analisis="${k}" rows="4" ${disabled}>${escapeHtml(analisis[k] || '')}</textarea>
           </label>`).join('')}
       </div>
@@ -1406,6 +1445,15 @@ async function guardarExamenInnovacion(enviar) {
 function renderResultadoExamenInnovacion(examen) {
   const r = examen.resultadoSimulado || {};
   const rubrica = examen.rubrica?.items || [];
+  const resumen = [
+    ['Ventas netas', fmt.bs(r.ventasNetas)],
+    ['Utilidad neta', fmt.bs(r.utilidadNeta)],
+    ['Caja final', fmt.bs(r.cajaFinal)],
+    ['Deuda final', fmt.bs(r.deudaFinal)],
+    ['Inventario final', fmt.num(r.inventarioFinal)],
+    ['Atractivo', fmt.d(r.atractivo,2)],
+    ['Costo unitario', fmt.bs(r.costoUnitario)],
+  ];
   return `
     <div class="result-round-card" style="padding:16px 20px">
       <h3 style="margin:0 0 12px;font-size:.95rem">Resultado del examen</h3>
@@ -1421,15 +1469,7 @@ function renderResultadoExamenInnovacion(examen) {
         </table>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
-        ${[
-          ['Ventas netas', fmt.bs(r.ventasNetas)],
-          ['Utilidad neta', fmt.bs(r.utilidadNeta)],
-          ['Caja final', fmt.bs(r.cajaFinal)],
-          ['Deuda final', fmt.bs(r.deudaFinal)],
-          ['Inventario final', fmt.num(r.inventarioFinal)],
-          ['Atractivo', fmt.d(r.atractivo,2)],
-          ['Costo unitario', fmt.d(r.costoUnitario,2)],
-        ].map(([k,v]) => `<div class="kpi-row"><span class="kpi-label">${k}</span><span class="kpi-value">${v}</span></div>`).join('')}
+        ${resumen.map(([k,v]) => `<div class="kpi-row"><span class="kpi-label">${k}: </span><span class="kpi-value">${v}</span></div>`).join('')}
       </div>
     </div>`;
 }
