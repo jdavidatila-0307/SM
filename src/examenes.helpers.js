@@ -1,4 +1,7 @@
+const { AFINIDAD_MEDIO_SEGMENTO } = require('./constants');
+
 const TIPOS_EXAMEN = ['marketing', 'innovacion', 'publicidad'];
+const CANALES_MIX_PROMOCIONAL = ['publicidad', 'promocion', 'eventos', 'marketingRedes', 'relacionesPublicas'];
 
 function normalizarConfigExamenes(config = {}) {
   const baseExamen = {
@@ -106,8 +109,64 @@ function contarPalabras(texto) {
   return String(texto || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
+function clasificarSaturacionMarketing(gasto, saturacion) {
+  if (gasto <= 0) return 'sin-inversion';
+  if (saturacion < 0.35) return 'baja';
+  if (saturacion < 0.70) return 'eficiente';
+  if (saturacion < 0.90) return 'saturacion-media';
+  return 'saturado';
+}
+
+function descomponerMarketingEfectivo(decision = {}, segmentoObjetivo, params = {}) {
+  const umbralSaturacion = params.umbralSaturacionMkt ?? 8000;
+  const maxAportePublicidad = params.maxAportePublicidad ?? 2;
+  const umbral = umbralSaturacion > 0 ? umbralSaturacion : 8000;
+  const techo = maxAportePublicidad ?? 2;
+  const componentes = {};
+  let totalMktEfectivo = 0;
+  let mejorRendimiento = null;
+
+  for (const canal of CANALES_MIX_PROMOCIONAL) {
+    const gasto = Math.max(0, +(decision[canal] || 0));
+    const saturacion = 1 - Math.exp(-gasto / umbral);
+    const afinidad = AFINIDAD_MEDIO_SEGMENTO[canal]?.[segmentoObjetivo] ?? 1.0;
+    const aporte = techo * saturacion * afinidad;
+    const aporteMarginal = techo * afinidad * Math.exp(-gasto / umbral) / umbral;
+    const rendimiento = gasto > 0 ? aporte / gasto : 0;
+    const componente = {
+      gasto,
+      saturacion,
+      afinidad,
+      aporte,
+      aporteMarginal,
+      clasificacion: clasificarSaturacionMarketing(gasto, saturacion),
+    };
+    componentes[canal] = componente;
+    totalMktEfectivo += aporte;
+
+    if (gasto > 0 && (!mejorRendimiento || rendimiento > mejorRendimiento.rendimiento)) {
+      mejorRendimiento = {
+        canal,
+        gasto,
+        aporte,
+        aporteMarginal,
+        rendimiento,
+      };
+    }
+  }
+
+  return {
+    totalMktEfectivo,
+    componentes,
+    mejorRendimiento,
+    umbralSaturacion: umbral,
+    maxAportePublicidad: techo,
+  };
+}
+
 module.exports = {
   TIPOS_EXAMEN,
+  CANALES_MIX_PROMOCIONAL,
   normalizarConfigExamenes,
   validarTipoExamen,
   prepararEstadoHeredado,
@@ -115,4 +174,5 @@ module.exports = {
   calcularCoherenciaOperativoFinanciera,
   limitarTexto,
   contarPalabras,
+  descomponerMarketingEfectivo,
 };
