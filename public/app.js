@@ -1834,7 +1834,8 @@ function renderEquipoExamenPublicidad(el, data) {
   const examen = data.examen || {};
   const heredada = examen.estadoHeredado?.decision || {};
   const decision = { ...heredada, ...(examen.decisionExamen || {}) };
-  const analisis = examen.analisisFinanciero || {};
+  const seleccionFinanciera = examen.analisisFinancieroSeleccion || {};
+  const legacyAnalisis = examen.analisisFinanciero || {};
   const disabled = examen.submitted ? 'disabled' : '';
   const readRows = EXAMEN_PUBLICIDAD_HEREDADOS.map(k => `
     <div class="kpi-row">
@@ -1885,16 +1886,22 @@ function renderEquipoExamenPublicidad(el, data) {
     </div>
 
     <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:.95rem">Justificación y análisis financiero</h3>
+      <h3 style="margin:0 0 12px;font-size:.95rem">Justificación estratégica</h3>
       <label class="form-label">Justificación estratégica
         <textarea class="form-input" data-publicidad-text="justificacionEstrategica" rows="5" ${disabled}>${escapeHtml(examen.justificacionEstrategica || '')}</textarea>
       </label>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
-        ${EXAMEN_PUBLICIDAD_ANALISIS.map(k => `
-          <label class="form-label">${EXAMEN_PUBLICIDAD_LABELS[k] || k}
-            <textarea class="form-input" data-publicidad-analisis="${k}" rows="4" ${disabled}>${escapeHtml(analisis[k] || '')}</textarea>
-          </label>`).join('')}
-      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Selección financiera cuantitativa</h3>
+      <p style="margin:0 0 12px;color:var(--text3);font-size:.8rem">
+        Guarda el borrador para generar los escenarios financieros con tu decisión actual. Elige el escenario más probable y justifica brevemente.
+      </p>
+      ${renderOpcionesFinancierasPublicidad(seleccionFinanciera, disabled)}
+      <label class="form-label" style="margin-top:12px">Justificación financiera breve
+        <textarea class="form-input" data-publicidad-financiera-breve rows="4" ${disabled}>${escapeHtml(seleccionFinanciera.justificacionFinancieraBreve || '')}</textarea>
+      </label>
+      ${renderLegacyAnalisisPublicidad(legacyAnalisis)}
       <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
         ${examen.submitted
           ? `<span class="badge badge-ok">Enviado</span>`
@@ -1908,6 +1915,50 @@ function renderEquipoExamenPublicidad(el, data) {
   document.getElementById('btnEnviarExamenPublicidad')?.addEventListener('click', () => guardarExamenPublicidad(true));
 }
 
+function renderOpcionesFinancierasPublicidad(seleccion, disabled) {
+  const opciones = seleccion.opciones || [];
+  if (!opciones.length) {
+    return `<div class="empty-state" style="padding:18px;text-align:left;align-items:flex-start">
+      <div class="empty-icon">📊</div>
+      <p>Aún no hay escenarios generados para esta decisión.</p>
+    </div>`;
+  }
+  return `<div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Elegir</th><th>Opción</th><th class="num">Ventas netas</th><th class="num">Utilidad neta</th>
+          <th class="num">Caja final</th><th class="num">ROAS</th><th class="num">Saturación</th><th>Riesgo</th>
+        </tr>
+      </thead>
+      <tbody>${opciones.map(op => `<tr>
+        <td><input type="radio" name="publicidadEscenarioFinanciero" data-publicidad-opcion="${escapeHtml(op.id)}" ${seleccion.opcionSeleccionada === op.id ? 'checked' : ''} ${disabled}></td>
+        <td><strong>${escapeHtml(op.id)}</strong></td>
+        <td class="num">${fmt.bs(op.ventasNetas)}</td>
+        <td class="num">${fmt.bs(op.utilidadNeta)}</td>
+        <td class="num">${fmt.bs(op.cajaFinal)}</td>
+        <td class="num">${fmt.d(op.roas, 2)}</td>
+        <td class="num">${fmt.d(op.saturacion, 2)}</td>
+        <td>${escapeHtml(op.riesgo || '')}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderLegacyAnalisisPublicidad(legacyAnalisis) {
+  const tieneLegacy = EXAMEN_PUBLICIDAD_ANALISIS.some(k => legacyAnalisis[k]);
+  if (!tieneLegacy) return '';
+  return `<details style="margin-top:12px">
+    <summary style="cursor:pointer;color:var(--text2);font-size:.82rem">Análisis financiero legacy</summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
+      ${EXAMEN_PUBLICIDAD_ANALISIS.map(k => `
+        <label class="form-label">${EXAMEN_PUBLICIDAD_LABELS[k] || k}
+          <textarea class="form-input" rows="3" readonly disabled>${escapeHtml(legacyAnalisis[k] || '')}</textarea>
+        </label>`).join('')}
+    </div>
+  </details>`;
+}
+
 function collectExamenPublicidadPayload() {
   const decisionExamen = {};
   document.querySelectorAll('[data-publicidad-field]').forEach(el => {
@@ -1916,15 +1967,14 @@ function collectExamenPublicidadPayload() {
     decisionExamen[k] = el.value;
     if (el.type === 'number') decisionExamen[k] = +el.value;
   });
-  const analisisFinanciero = {};
-  document.querySelectorAll('[data-publicidad-analisis]').forEach(el => {
-    const k = el.dataset.publicidadAnalisis;
-    if (EXAMEN_PUBLICIDAD_ANALISIS.includes(k)) analisisFinanciero[k] = el.value;
-  });
+  const opcionSeleccionada = document.querySelector('[data-publicidad-opcion]:checked')?.dataset.publicidadOpcion || null;
   return {
     decisionExamen,
     justificacionEstrategica: document.querySelector('[data-publicidad-text="justificacionEstrategica"]')?.value || '',
-    analisisFinanciero,
+    analisisFinancieroSeleccion: {
+      opcionSeleccionada,
+      justificacionFinancieraBreve: document.querySelector('[data-publicidad-financiera-breve]')?.value || '',
+    },
   };
 }
 
@@ -1944,6 +1994,8 @@ function renderResultadoExamenPublicidad(examen) {
   const r = examen.resultadoSimulado || {};
   const rubrica = examen.rubrica?.items || [];
   const componentes = examen.descomposicionMarketing?.componentes || {};
+  const seleccion = examen.analisisFinancieroSeleccion || {};
+  const calificacionFinanciera = examen.calificacionFinanciera || {};
   const resumen = [
     ['Ventas netas', fmt.bs(r.ventasNetas)],
     ['Utilidad neta', fmt.bs(r.utilidadNeta)],
@@ -1973,6 +2025,8 @@ function renderResultadoExamenPublicidad(examen) {
         <span class="badge badge-ok">submitted: ${examen.submitted ? 'true' : 'false'}</span>
         <span class="badge">submittedAt: ${fmt.dt(examen.submittedAt)}</span>
         <span class="badge badge-simulated">Nota final: ${examen.notaFinal ?? '—'}</span>
+        <span class="badge">Opcion financiera: ${escapeHtml(seleccion.opcionSeleccionada || '—')}</span>
+        <span class="badge">Puntaje financiero: ${calificacionFinanciera.total ?? '—'} / ${calificacionFinanciera.max ?? 20}</span>
       </div>
       <div class="table-wrap" style="margin-bottom:16px">
         <table>

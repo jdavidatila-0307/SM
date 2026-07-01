@@ -6,6 +6,11 @@ const {
   limitarTexto,
   descomponerMarketingEfectivo,
 } = require('./examenes.helpers');
+const {
+  generarAnalisisFinancieroPublicidad,
+  validarSeleccionFinancieraPublicidad,
+  calificarSeleccionFinancieraPublicidad,
+} = require('./examenes.finanzas');
 
 const CAMPOS_PUBLICIDAD = [
   'publicidad',
@@ -92,6 +97,7 @@ function validarInputPublicidad(input = {}, opts = {}) {
   for (const campo of CAMPOS_ANALISIS) {
     analisisFinanciero[campo] = limitarTexto(fuenteAnalisis[campo], 3000);
   }
+  const analisisFinancieroSeleccion = validarSeleccionFinancieraPublicidad(body, opts);
 
   if (opts.enviar) {
     if (contarPalabras(justificacionEstrategica) < 60) {
@@ -99,15 +105,9 @@ function validarInputPublicidad(input = {}, opts = {}) {
       err.status = 400;
       throw err;
     }
-    const incompletos = CAMPOS_ANALISIS.filter(c => contarPalabras(analisisFinanciero[c]) < 8);
-    if (incompletos.length) {
-      const err = new Error(`Analisis financiero insuficiente: ${incompletos.join(', ')}`);
-      err.status = 400;
-      throw err;
-    }
   }
 
-  return { decisionExamen, justificacionEstrategica, analisisFinanciero };
+  return { decisionExamen, justificacionEstrategica, analisisFinanciero, analisisFinancieroSeleccion };
 }
 
 function _puntos(nombre, max, valor, comentario) {
@@ -122,6 +122,8 @@ function evaluarRubricaPublicidad(contexto) {
     estadoHeredado,
     justificacionEstrategica,
     analisisFinanciero,
+    analisisFinancieroSeleccion,
+    calificacionFinanciera,
     tendencia,
     descomposicionMarketing,
   } = contexto;
@@ -143,7 +145,8 @@ function evaluarRubricaPublicidad(contexto) {
   const gastoMix = canalesConGasto.reduce((s, c) => s + (c.gasto || 0), 0);
   const retornoPorBs = gastoMix > 0 ? Math.max(0, deltaVentas) / gastoMix : 0;
   const canalOk = Boolean(decisionExamen.canalPrincipal && decisionExamen.canalPrincipal !== 'Ninguno');
-  const operativoFinanciero = calcularCoherenciaOperativoFinanciera(decisionExamen, resultadoSimulado);
+  const financiero = calificacionFinanciera ||
+    calificarSeleccionFinancieraPublicidad(analisisFinancieroSeleccion, decisionExamen, descomposicionMarketing);
 
   const items = [
     _puntos(
@@ -179,12 +182,10 @@ function evaluarRubricaPublicidad(contexto) {
       `Delta ventas: ${deltaVentas.toFixed(2)}; delta utilidad: ${deltaUtilidad.toFixed(2)}`
     ),
     _puntos(
-      'Analisis financiero de la campana',
+      'Seleccion financiera cuantitativa',
       20,
-      Math.min(14, Math.floor(palabrasAnalisis / 14)) +
-        (resultadoSimulado.cajaFinal >= 0 ? 3 : 0) +
-        Math.min(3, Math.floor(operativoFinanciero / 4)),
-      `Palabras analisis: ${palabrasAnalisis}; coherencia financiera: ${operativoFinanciero}`
+      financiero.total,
+      `${financiero.comentario}; opcion seleccionada: ${financiero.opcionSeleccionada || 'sin seleccion'}`
     ),
     _puntos(
       'Justificacion estrategica escrita',
@@ -224,12 +225,30 @@ function calcularExamenPublicidad(contexto) {
   }
   const tendencia = calcularTendencia(sim, equipoId, rondaActivacion, ['ventasNetas', 'utilidadNeta', 'atractivo', 'cajaFinal']);
   const descomposicionMarketing = descomponerMarketingEfectivo(decisionExamen, decisionExamen.segmentoObjetivo, simCfg.params);
+  const generado = generarAnalisisFinancieroPublicidad({
+    decisionExamen,
+    resultadoSimulado,
+    estadoHeredado,
+    descomposicionMarketing,
+  });
+  const analisisFinancieroSeleccion = {
+    ...generado,
+    opcionSeleccionada: input.analisisFinancieroSeleccion?.opcionSeleccionada || null,
+    justificacionFinancieraBreve: input.analisisFinancieroSeleccion?.justificacionFinancieraBreve || '',
+  };
+  const calificacionFinanciera = calificarSeleccionFinancieraPublicidad(
+    analisisFinancieroSeleccion,
+    decisionExamen,
+    descomposicionMarketing
+  );
   const rubrica = evaluarRubricaPublicidad({
     decisionExamen,
     resultadoSimulado,
     estadoHeredado,
     justificacionEstrategica: input.justificacionEstrategica,
     analisisFinanciero: input.analisisFinanciero,
+    analisisFinancieroSeleccion,
+    calificacionFinanciera,
     tendencia,
     descomposicionMarketing,
   });
@@ -240,6 +259,8 @@ function calcularExamenPublicidad(contexto) {
     notaFinal: rubrica.total,
     tendencia,
     descomposicionMarketing,
+    analisisFinancieroSeleccion,
+    calificacionFinanciera,
   };
 }
 

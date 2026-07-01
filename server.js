@@ -18,6 +18,7 @@ const { normalizarConfigExamenes, prepararEstadoHeredado } = require('./src/exam
 const { validarInputInnovacion, calcularExamenInnovacion } = require('./src/examenes.innovacion');
 const { validarInputMarketing, calcularExamenMarketing } = require('./src/examenes.marketing');
 const { validarInputPublicidad, calcularExamenPublicidad } = require('./src/examenes.publicidad');
+const { sanitizarAnalisisFinancieroSeleccion } = require('./src/examenes.finanzas');
 
 const PORT = process.env.PORT || 3000;
 console.log('[server] DATABASE_URL definida?', process.env.DATABASE_URL ? 'Sí' : 'No');
@@ -285,13 +286,32 @@ function _examenPublicidadBase(estadoHeredado) {
       kpisEsperados: '',
       riesgosFinancieros: '',
     },
+    analisisFinancieroSeleccion: {
+      version: 1,
+      generadoAt: null,
+      decisionHash: '',
+      resultadoHash: '',
+      opciones: [],
+      opcionCorrecta: null,
+      opcionSeleccionada: null,
+      justificacionFinancieraBreve: '',
+    },
     resultadoSimulado: {},
     rubrica: {},
     notaFinal: null,
+    calificacionFinanciera: null,
     tendencia: {},
     descomposicionMarketing: {},
     submitted: false,
     submittedAt: null,
+  };
+}
+
+function _sanitizarExamenPublicidadParaCliente(examen) {
+  if (!examen) return examen;
+  return {
+    ...examen,
+    analisisFinancieroSeleccion: sanitizarAnalisisFinancieroSeleccion(examen.analisisFinancieroSeleccion),
   };
 }
 
@@ -1543,7 +1563,7 @@ async function route(req, res, body) {
       return send(res, 200, {
         tipo: 'publicidad',
         rondaActivacion: ex.rondaActivacion,
-        examen,
+        examen: _sanitizarExamenPublicidadParaCliente(examen),
       });
     } catch (e) {
       return _sendExamError(res, e);
@@ -1566,16 +1586,40 @@ async function route(req, res, body) {
       const actual = _getExamenPublicidad(ronda, equipoId, estadoHeredado);
       if (actual.submitted) return send(res, 400, { error: 'El examen ya fue enviado' });
       const input = validarInputPublicidad(body, { enviar: false });
+      const calculado = calcularExamenPublicidad({
+        sim,
+        equipoId,
+        rondaActivacion: ex.rondaActivacion,
+        estadoHeredado,
+        input: {
+          ...input,
+          decisionExamen: { ...(actual.decisionExamen || {}), ...input.decisionExamen },
+        },
+      });
       const examen = {
         ...actual,
-        decisionExamen: { ...(actual.decisionExamen || {}), ...input.decisionExamen },
+        estadoHeredado,
+        decisionExamen: calculado.decisionExamen,
         justificacionEstrategica: input.justificacionEstrategica,
         analisisFinanciero: input.analisisFinanciero,
+        analisisFinancieroSeleccion: {
+          ...calculado.analisisFinancieroSeleccion,
+          opcionSeleccionada: actual.analisisFinancieroSeleccion?.decisionHash &&
+            actual.analisisFinancieroSeleccion.decisionHash !== calculado.analisisFinancieroSeleccion.decisionHash
+              ? null
+              : calculado.analisisFinancieroSeleccion.opcionSeleccionada,
+        },
+        resultadoSimulado: calculado.resultadoSimulado,
+        tendencia: calculado.tendencia,
+        descomposicionMarketing: calculado.descomposicionMarketing,
+        calificacionFinanciera: null,
+        rubrica: {},
+        notaFinal: null,
         submitted: false,
         submittedAt: null,
       };
       await _guardarExamenPublicidad(sim, ex.rondaActivacion, equipoId, examen);
-      return send(res, 200, { ok: true, examen });
+      return send(res, 200, { ok: true, examen: _sanitizarExamenPublicidadParaCliente(examen) });
     } catch (e) {
       return _sendExamError(res, e);
     }
@@ -1604,6 +1648,7 @@ async function route(req, res, body) {
           ...(actual.analisisFinanciero || {}),
           ...Object.fromEntries(Object.entries(parcial.analisisFinanciero || {}).filter(([, v]) => v)),
         },
+        analisisFinancieroSeleccion: parcial.analisisFinancieroSeleccion,
       };
       const input = validarInputPublicidad(combinado, { enviar: true });
       const calculado = calcularExamenPublicidad({
@@ -1613,22 +1658,28 @@ async function route(req, res, body) {
         estadoHeredado,
         input,
       });
+      if (!actual.analisisFinancieroSeleccion?.decisionHash ||
+          actual.analisisFinancieroSeleccion.decisionHash !== calculado.analisisFinancieroSeleccion.decisionHash) {
+        return send(res, 400, { error: 'Debe guardar borrador para generar escenarios financieros actualizados antes de enviar' });
+      }
       const examen = {
         ...actual,
         estadoHeredado,
         decisionExamen: calculado.decisionExamen,
         justificacionEstrategica: input.justificacionEstrategica,
         analisisFinanciero: input.analisisFinanciero,
+        analisisFinancieroSeleccion: calculado.analisisFinancieroSeleccion,
         resultadoSimulado: calculado.resultadoSimulado,
         rubrica: calculado.rubrica,
         notaFinal: calculado.notaFinal,
+        calificacionFinanciera: calculado.calificacionFinanciera,
         tendencia: calculado.tendencia,
         descomposicionMarketing: calculado.descomposicionMarketing,
         submitted: true,
         submittedAt: new Date().toISOString(),
       };
       await _guardarExamenPublicidad(sim, ex.rondaActivacion, equipoId, examen);
-      return send(res, 200, { ok: true, examen });
+      return send(res, 200, { ok: true, examen: _sanitizarExamenPublicidadParaCliente(examen) });
     } catch (e) {
       return _sendExamError(res, e);
     }
