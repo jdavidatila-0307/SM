@@ -68,7 +68,7 @@ function setupNav(screenId) {
         'admin-financiero':'Estados Financieros',
         'admin-mercado':'Mercado', 'admin-parametros':'Parámetros',
         'admin-segmentos':'Segmentos',
-        'eq-hoja':'Hoja de Decisión', 'eq-examen-innovacion':'Examen de Innovación', 'eq-examen-marketing':'Examen de Marketing', 'eq-financiero':'Estados Financieros',
+        'eq-hoja':'Hoja de Decisión', 'eq-examen-innovacion':'Examen de Innovación', 'eq-examen-marketing':'Examen de Marketing', 'eq-examen-publicidad':'Examen de Publicidad', 'eq-financiero':'Estados Financieros',
         'eq-resultados':'KPIs', 'eq-creditos':'Mis Créditos', 'eq-reportes':'Investigación y Ranking',
         'admin-creditos':'Reporte de Créditos', 'admin-afinidad':'Matriz de Afinidad', 'admin-competencia':'Competencia Externa',
         'admin-posicionamiento':'Mapa de Posicionamiento', 'eq-posicionamiento':'Mapa de Posicionamiento',
@@ -76,7 +76,7 @@ function setupNav(screenId) {
       const tt = document.getElementById(screenId === 'screen-admin' ? 'adminTopTitle' : 'equipoTopTitle');
       if (tt) tt.textContent = titles[btn.dataset.view] || '';
       if (screenId === 'screen-equipo') {
-        const examView = btn.dataset.view === 'eq-examen-innovacion' || btn.dataset.view === 'eq-examen-marketing';
+        const examView = btn.dataset.view === 'eq-examen-innovacion' || btn.dataset.view === 'eq-examen-marketing' || btn.dataset.view === 'eq-examen-publicidad';
         ['btnGuardar', 'btnEnviar'].forEach(id => {
           const actionBtn = document.getElementById(id);
           if (actionBtn) actionBtn.style.display = examView ? 'none' : '';
@@ -108,6 +108,7 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'admin-profesores') loadAdminProfesores();
       if (btn.dataset.view === 'eq-examen-innovacion') loadEquipoExamenInnovacion();
       if (btn.dataset.view === 'eq-examen-marketing') loadEquipoExamenMarketing();
+      if (btn.dataset.view === 'eq-examen-publicidad') loadEquipoExamenPublicidad();
       if (btn.dataset.view === 'eq-manual') { buildManual(); }
     });
   });
@@ -1108,10 +1109,14 @@ async function loadAdminExamenes() {
     const data = await api('GET', '/admin/examenes');
     const innovacion = data.examenes?.innovacion || {};
     const marketing = data.examenes?.marketing || {};
+    const publicidad = data.examenes?.publicidad || {};
     const estadoInnovacion = innovacion.activado
       ? `<span class="badge badge-ok">Activado</span>`
       : `<span class="badge badge-pending">No activado</span>`;
     const estadoMarketing = marketing.activado
+      ? `<span class="badge badge-ok">Activado</span>`
+      : `<span class="badge badge-pending">No activado</span>`;
+    const estadoPublicidad = publicidad.activado
       ? `<span class="badge badge-ok">Activado</span>`
       : `<span class="badge badge-pending">No activado</span>`;
     el.innerHTML = `
@@ -1151,10 +1156,16 @@ async function loadAdminExamenes() {
             Activar Examen de Marketing
           </button>
         </div>
-        <div class="result-round-card" style="padding:14px 16px;opacity:.72">
-          <h3 style="margin:0 0 6px;font-size:.92rem">Publicidad</h3>
-          <span class="badge badge-pending">Pendiente</span>
-          <p style="margin:8px 0 0;color:var(--text3);font-size:.78rem">No implementado en esta fase.</p>
+        <div class="result-round-card" style="padding:14px 16px">
+          <h3 style="margin:0 0 6px;font-size:.92rem">Examen de Publicidad, Retorno y Eficiencia Comercial</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:.78rem;color:var(--text2);margin-bottom:12px">
+            <span>Estado: ${estadoPublicidad}</span>
+            <span>Habilitado desde ronda: <strong>${publicidad.habilitadoDesdeRonda ?? 10}</strong></span>
+            <span>Ronda activaciÃ³n: <strong>${publicidad.rondaActivacion ?? 'â€”'}</strong></span>
+          </div>
+          <button class="btn btn-success btn-sm" id="btnActivarExamenPublicidad" ${publicidad.activado ? 'disabled' : ''}>
+            Activar Examen de Publicidad
+          </button>
         </div>
       </div>`;
 
@@ -1171,6 +1182,15 @@ async function loadAdminExamenes() {
       try {
         const res = await api('POST', '/admin/examenes/marketing/activar');
         toast(`✓ Examen de Marketing activado en ronda ${res.rondaActivacion}`, 'success');
+        await loadAdminExamenes();
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    });
+    document.getElementById('btnActivarExamenPublicidad')?.addEventListener('click', async () => {
+      try {
+        const res = await api('POST', '/admin/examenes/publicidad/activar');
+        toast(`✓ Examen de Publicidad activado en ronda ${res.rondaActivacion}`, 'success');
         await loadAdminExamenes();
       } catch (e) {
         toast(e.message, 'error');
@@ -1702,6 +1722,243 @@ function renderResultadoExamenMarketing(examen) {
       const c = componentes[k];
       return `<tr>
         <td>${EXAMEN_MARKETING_LABELS[k] || k}</td>
+        <td class="num">${fmt.bs(c.gasto)}</td>
+        <td class="num">${fmt.d(c.saturacion, 2)}</td>
+        <td class="num">${fmt.d(c.afinidad, 2)}</td>
+        <td class="num">${fmt.d(c.aporte, 2)}</td>
+        <td>${escapeHtml(c.clasificacion || '')}</td>
+      </tr>`;
+    }).join('');
+  return `
+    <div class="result-round-card" style="padding:16px 20px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Resultado del examen</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge badge-ok">submitted: ${examen.submitted ? 'true' : 'false'}</span>
+        <span class="badge">submittedAt: ${fmt.dt(examen.submittedAt)}</span>
+        <span class="badge badge-simulated">Nota final: ${examen.notaFinal ?? '—'}</span>
+      </div>
+      <div class="table-wrap" style="margin-bottom:16px">
+        <table>
+          <thead><tr><th>Criterio</th><th class="num">Puntos</th><th class="num">Máx.</th><th>Comentario</th></tr></thead>
+          <tbody>${rubrica.map(i => `<tr><td>${escapeHtml(i.nombre || '')}</td><td class="num">${i.puntos}</td><td class="num">${i.max}</td><td>${escapeHtml(i.comentario || '')}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px">
+        ${resumen.map(([k,v]) => `<div class="kpi-row"><span class="kpi-label">${k}: </span><span class="kpi-value">${v}</span></div>`).join('')}
+      </div>
+      ${mixRows ? `<div class="table-wrap">
+        <table>
+          <thead><tr><th>Componente</th><th class="num">Gasto</th><th class="num">Saturación</th><th class="num">Afinidad</th><th class="num">Aporte</th><th>Clasificación</th></tr></thead>
+          <tbody>${mixRows}</tbody>
+        </table>
+      </div>` : ''}
+    </div>`;
+}
+
+const EXAMEN_PUBLICIDAD_EDITABLES = [
+  'publicidad', 'promocion', 'eventos', 'marketingRedes', 'relacionesPublicas',
+  'canalPrincipal', 'canalSecundario', 'precioVenta', 'produccion',
+  'tipoPrestamo', 'montoPrestamo', 'plazoPrestamo', 'amortizacion',
+];
+
+const EXAMEN_PUBLICIDAD_HEREDADOS = [
+  'producto', 'segmentoObjetivo', 'calidad', 'innovacion', 'tipoInnovacion',
+  'montoInnovacion', 'tipoInvestigacion', 'contratarVendedores', 'despedirVendedores',
+];
+
+const EXAMEN_PUBLICIDAD_ANALISIS = [
+  'impactoEstadoResultados', 'impactoBalanceGeneral', 'impactoFlujoCaja',
+  'kpisEsperados', 'riesgosFinancieros',
+];
+
+const EXAMEN_PUBLICIDAD_LABELS = {
+  publicidad: 'Publicidad',
+  promocion: 'Promoción',
+  eventos: 'Eventos',
+  marketingRedes: 'Marketing en redes',
+  relacionesPublicas: 'Relaciones públicas',
+  canalPrincipal: 'Canal principal',
+  canalSecundario: 'Canal secundario',
+  precioVenta: 'Precio de venta',
+  produccion: 'Producción',
+  tipoPrestamo: 'Tipo de préstamo',
+  montoPrestamo: 'Monto del préstamo',
+  plazoPrestamo: 'Plazo del préstamo',
+  amortizacion: 'Amortización',
+  producto: 'Producto',
+  segmentoObjetivo: 'Segmento objetivo',
+  calidad: 'Calidad',
+  innovacion: 'Innovación',
+  tipoInnovacion: 'Tipo de innovación',
+  montoInnovacion: 'Monto de innovación',
+  tipoInvestigacion: 'Tipo de investigación',
+  contratarVendedores: 'Contratar vendedores',
+  despedirVendedores: 'Despedir vendedores',
+  impactoEstadoResultados: 'Impacto en Estado de Resultados',
+  impactoBalanceGeneral: 'Impacto en Balance General',
+  impactoFlujoCaja: 'Impacto en Flujo de Caja',
+  kpisEsperados: 'KPIs esperados',
+  riesgosFinancieros: 'Riesgos financieros',
+};
+
+async function loadEquipoExamenPublicidad() {
+  const el = document.getElementById('eqExamenPublicidadContent');
+  if (!el) return;
+  try {
+    const estado = await api('GET', '/api/examenes');
+    const publicidad = estado.examenes?.publicidad;
+    if (!publicidad?.activado) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🧪</div><p>El examen de Publicidad aún no está activado.</p></div>`;
+      return;
+    }
+    const data = await api('GET', '/api/examenes/publicidad');
+    renderEquipoExamenPublicidad(el, data);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p style="color:var(--accent4)">${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderPublicidadTextField(k, decision, disabled) {
+  return `<label class="form-label">${EXAMEN_PUBLICIDAD_LABELS[k] || k}
+    <input class="form-input" data-publicidad-field="${k}" value="${escapeHtml(decision[k] || '')}" ${disabled}>
+  </label>`;
+}
+
+function renderPublicidadNumberField(k, decision, disabled, step = '100') {
+  return `<label class="form-label">${EXAMEN_PUBLICIDAD_LABELS[k] || k}
+    <input class="form-input" type="number" min="0" step="${step}" data-publicidad-field="${k}" value="${decision[k] || 0}" ${disabled}>
+  </label>`;
+}
+
+function renderEquipoExamenPublicidad(el, data) {
+  const examen = data.examen || {};
+  const heredada = examen.estadoHeredado?.decision || {};
+  const decision = { ...heredada, ...(examen.decisionExamen || {}) };
+  const analisis = examen.analisisFinanciero || {};
+  const disabled = examen.submitted ? 'disabled' : '';
+  const readRows = EXAMEN_PUBLICIDAD_HEREDADOS.map(k => `
+    <div class="kpi-row">
+      <span class="kpi-label">${EXAMEN_PUBLICIDAD_LABELS[k] || k}</span>
+      <span class="kpi-value">${examenMoneyMaybe(k, heredada[k])}</span>
+    </div>`).join('');
+  const resultado = examen.submitted ? renderResultadoExamenPublicidad(examen) : '';
+  const submittedNotice = examen.submitted
+    ? `<div class="empty-state" style="margin-bottom:16px;text-align:left;align-items:flex-start">
+        <div class="empty-icon">✓</div>
+        <p><strong>Este examen ya fue enviado.</strong><br>Los campos quedan bloqueados y sólo puedes revisar la información registrada.</p>
+      </div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="section-header">
+      <div>
+        <h2>🧪 Examen de Publicidad, Retorno y Eficiencia Comercial</h2>
+        <p>Ronda de activación ${data.rondaActivacion}. Los campos heredados son sólo lectura.</p>
+      </div>
+    </div>
+    ${submittedNotice}
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Estado heredado bloqueado</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 24px">
+        ${readRows}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Decisión del examen</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        ${renderPublicidadNumberField('publicidad', decision, disabled, '500')}
+        ${renderPublicidadNumberField('promocion', decision, disabled, '500')}
+        ${renderPublicidadNumberField('eventos', decision, disabled, '500')}
+        ${renderPublicidadNumberField('marketingRedes', decision, disabled, '500')}
+        ${renderPublicidadNumberField('relacionesPublicas', decision, disabled, '500')}
+        ${renderPublicidadTextField('canalPrincipal', decision, disabled)}
+        ${renderPublicidadTextField('canalSecundario', decision, disabled)}
+        ${renderPublicidadNumberField('precioVenta', decision, disabled, '0.1')}
+        ${renderPublicidadNumberField('produccion', decision, disabled, '500')}
+        ${renderPublicidadTextField('tipoPrestamo', decision, disabled)}
+        ${renderPublicidadNumberField('montoPrestamo', decision, disabled, '1000')}
+        ${renderPublicidadNumberField('plazoPrestamo', decision, disabled, '1')}
+        ${renderPublicidadNumberField('amortizacion', decision, disabled, '1000')}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:16px 20px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:.95rem">Justificación y análisis financiero</h3>
+      <label class="form-label">Justificación estratégica
+        <textarea class="form-input" data-publicidad-text="justificacionEstrategica" rows="5" ${disabled}>${escapeHtml(examen.justificacionEstrategica || '')}</textarea>
+      </label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
+        ${EXAMEN_PUBLICIDAD_ANALISIS.map(k => `
+          <label class="form-label">${EXAMEN_PUBLICIDAD_LABELS[k] || k}
+            <textarea class="form-input" data-publicidad-analisis="${k}" rows="4" ${disabled}>${escapeHtml(analisis[k] || '')}</textarea>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        ${examen.submitted
+          ? `<span class="badge badge-ok">Enviado</span>`
+          : `<button class="btn btn-ghost" id="btnGuardarExamenPublicidad">Guardar borrador del examen</button>
+             <button class="btn btn-success" id="btnEnviarExamenPublicidad">Enviar examen</button>`}
+      </div>
+    </div>
+    ${resultado}`;
+
+  document.getElementById('btnGuardarExamenPublicidad')?.addEventListener('click', () => guardarExamenPublicidad(false));
+  document.getElementById('btnEnviarExamenPublicidad')?.addEventListener('click', () => guardarExamenPublicidad(true));
+}
+
+function collectExamenPublicidadPayload() {
+  const decisionExamen = {};
+  document.querySelectorAll('[data-publicidad-field]').forEach(el => {
+    const k = el.dataset.publicidadField;
+    if (!EXAMEN_PUBLICIDAD_EDITABLES.includes(k)) return;
+    decisionExamen[k] = el.value;
+    if (el.type === 'number') decisionExamen[k] = +el.value;
+  });
+  const analisisFinanciero = {};
+  document.querySelectorAll('[data-publicidad-analisis]').forEach(el => {
+    const k = el.dataset.publicidadAnalisis;
+    if (EXAMEN_PUBLICIDAD_ANALISIS.includes(k)) analisisFinanciero[k] = el.value;
+  });
+  return {
+    decisionExamen,
+    justificacionEstrategica: document.querySelector('[data-publicidad-text="justificacionEstrategica"]')?.value || '',
+    analisisFinanciero,
+  };
+}
+
+async function guardarExamenPublicidad(enviar) {
+  try {
+    const payload = collectExamenPublicidadPayload();
+    const url = enviar ? '/api/examenes/publicidad/enviar' : '/api/examenes/publicidad/guardar';
+    await api('POST', url, payload);
+    toast(enviar ? '✓ Examen de Publicidad enviado' : '💾 Borrador de Publicidad guardado', 'success');
+    await loadEquipoExamenPublicidad();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function renderResultadoExamenPublicidad(examen) {
+  const r = examen.resultadoSimulado || {};
+  const rubrica = examen.rubrica?.items || [];
+  const componentes = examen.descomposicionMarketing?.componentes || {};
+  const resumen = [
+    ['Ventas netas', fmt.bs(r.ventasNetas)],
+    ['Utilidad neta', fmt.bs(r.utilidadNeta)],
+    ['Caja final', fmt.bs(r.cajaFinal)],
+    ['Deuda final', fmt.bs(r.deudaFinal)],
+    ['Inventario final', fmt.num(r.inventarioFinal)],
+    ['Atractivo', fmt.d(r.atractivo,2)],
+    ['Costo unitario', fmt.bs(r.costoUnitario)],
+  ];
+  const mixRows = ['publicidad','promocion','eventos','marketingRedes','relacionesPublicas']
+    .filter(k => componentes[k])
+    .map(k => {
+      const c = componentes[k];
+      return `<tr>
+        <td>${EXAMEN_PUBLICIDAD_LABELS[k] || k}</td>
         <td class="num">${fmt.bs(c.gasto)}</td>
         <td class="num">${fmt.d(c.saturacion, 2)}</td>
         <td class="num">${fmt.d(c.afinidad, 2)}</td>
