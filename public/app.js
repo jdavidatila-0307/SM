@@ -70,6 +70,7 @@ function setupNav(screenId) {
         'admin-segmentos':'Segmentos',
         'eq-hoja':'Hoja de Decisión', 'eq-examen-innovacion':'Examen de Innovación', 'eq-examen-marketing':'Examen de Marketing', 'eq-examen-publicidad':'Examen de Publicidad', 'eq-financiero':'Estados Financieros',
         'eq-resultados':'KPIs', 'eq-creditos':'Mis Créditos', 'eq-reportes':'Investigación y Ranking',
+        'eq-guia-examen':'Guía para el Examen',
         'admin-creditos':'Reporte de Créditos', 'admin-afinidad':'Matriz de Afinidad', 'admin-competencia':'Competencia Externa',
         'admin-posicionamiento':'Mapa de Posicionamiento', 'eq-posicionamiento':'Mapa de Posicionamiento',
       };
@@ -77,9 +78,10 @@ function setupNav(screenId) {
       if (tt) tt.textContent = titles[btn.dataset.view] || '';
       if (screenId === 'screen-equipo') {
         const examView = btn.dataset.view === 'eq-examen-innovacion' || btn.dataset.view === 'eq-examen-marketing' || btn.dataset.view === 'eq-examen-publicidad';
+        const guideView = btn.dataset.view === 'eq-guia-examen';
         ['btnGuardar', 'btnEnviar'].forEach(id => {
           const actionBtn = document.getElementById(id);
-          if (actionBtn) actionBtn.style.display = examView ? 'none' : '';
+          if (actionBtn) actionBtn.style.display = (examView || guideView) ? 'none' : '';
         });
         const roundBadge = document.getElementById('equipoRoundBadge');
         if (roundBadge) roundBadge.style.display = examView ? 'none' : '';
@@ -110,6 +112,7 @@ function setupNav(screenId) {
       if (btn.dataset.view === 'eq-examen-marketing') loadEquipoExamenMarketing();
       if (btn.dataset.view === 'eq-examen-publicidad') loadEquipoExamenPublicidad();
       if (btn.dataset.view === 'eq-manual') { buildManual(); }
+      if (btn.dataset.view === 'eq-guia-examen') buildGuiaExamen();
     });
   });
 }
@@ -4280,6 +4283,129 @@ function renderEquipoDashboard(el, cmp, miResultado, historial) {
 }
 function buildManual() {
   window.open('/manual.html', '_blank');
+}
+
+function buildGuiaExamen() {
+  const el = document.getElementById('eqGuiaExamenContent');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="section-header">
+      <div>
+        <h2>📘 Guía para el Examen</h2>
+        <p>Referencia rápida para interpretar escenarios financieros y responder con criterio cuantitativo.</p>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">1. Cómo piensa el simulador</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--text2);font-size:.88rem">
+        ${['Decisión del estudiante','Reacción del mercado','Unidades vendidas','Ventas brutas','Ventas netas','Costos y gastos','Utilidad','Caja','Riesgo','Resultado del examen'].map((x, i, arr) => `
+          <span class="badge">${x}</span>${i < arr.length - 1 ? '<span>→</span>' : ''}
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">2. Diferencias clave</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Confusión común</th><th>Lectura correcta</th></tr></thead>
+          <tbody>
+            <tr><td>Producción</td><td>No es ventas; es la cantidad disponible para vender.</td></tr>
+            <tr><td>Unidades vendidas</td><td>No son necesariamente la producción total.</td></tr>
+            <tr><td>Ventas brutas</td><td>No son ventas netas; todavía faltan ajustes comerciales.</td></tr>
+            <tr><td>Utilidad</td><td>No es caja; puede haber utilidad y aun así tensión de liquidez.</td></tr>
+            <tr><td>Más ventas</td><td>No siempre significa más rentabilidad.</td></tr>
+            <tr><td>Más publicidad</td><td>No siempre significa más retorno.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">3. Ejemplo corregido: precio y producción</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px">
+        <div class="kpi-row"><span class="kpi-label">Precio</span><span class="kpi-value">Bs 135</span></div>
+        <div class="kpi-row"><span class="kpi-label">Producción</span><span class="kpi-value">1.300 unidades</span></div>
+        <div class="kpi-row"><span class="kpi-label">Unidades vendidas esperadas</span><span class="kpi-value">1.150</span></div>
+      </div>
+      <p style="margin:0 0 10px;color:var(--text2)">Ventas potenciales = 135 × 1.300 = <strong>Bs 175.500</strong>.</p>
+      <p style="margin:0 0 12px;color:var(--text3)">Eso no es ventas netas. Es el máximo teórico si se vendiera todo lo producido.</p>
+      <p style="margin:0 0 12px;color:var(--text2)">Ventas brutas = 135 × 1.150 = <strong>Bs 155.250</strong>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ajuste</th><th class="num">Cálculo</th><th class="num">Monto</th></tr></thead>
+          <tbody>
+            <tr><td>Comisión canal 5%</td><td class="num">155.250 × 5%</td><td class="num">Bs 7.762,50</td></tr>
+            <tr><td>Descuento/promoción 3%</td><td class="num">155.250 × 3%</td><td class="num">Bs 4.657,50</td></tr>
+            <tr><td>Otros ajustes comerciales estimados</td><td class="num">Pedagógico</td><td class="num">Bs 4.830,00</td></tr>
+            <tr><td><strong>Total ajustes</strong></td><td></td><td class="num"><strong>Bs 17.250,00</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin:12px 0 0;color:var(--text2)">Ventas netas = 155.250 - 17.250 = <strong>Bs 138.000</strong>.</p>
+      <p style="margin:8px 0 0;color:var(--text3);font-size:.82rem">Los “otros ajustes” son pedagógicos para el ejemplo. En el simulador real pueden venir de impuestos, comisiones, descuentos, promociones u otros parámetros definidos.</p>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">4. Fórmulas básicas</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px">
+        ${[
+          'Ventas potenciales = precio × producción',
+          'Ventas brutas = precio × unidades vendidas',
+          'Ventas netas = ventas brutas - ajustes',
+          'Utilidad neta = ventas netas - costos - gastos',
+          'Margen neto = utilidad neta / ventas netas',
+          'Caja final = caja inicial + entradas - salidas',
+          'ROI = utilidad generada / inversión',
+          'ROAS = ventas atribuibles / gasto publicitario',
+        ].map(f => `<div class="kpi-row"><span class="kpi-value">${f}</span></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">5. Cómo responder selección múltiple financiera</h3>
+      <p style="margin:0 0 12px;color:var(--text2)">La respuesta correcta no siempre es la de mayor venta. Revisa ventas netas, utilidad neta, caja final, KPI principal, riesgo y coherencia con la decisión.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo de opción</th><th>Cómo reconocerla</th></tr></thead>
+          <tbody>
+            <tr><td>Correcta</td><td>Es la más cercana al resultado simulado y mantiene coherencia financiera.</td></tr>
+            <tr><td>Optimista</td><td>Sobreestima ventas, utilidad o caja.</td></tr>
+            <tr><td>Pesimista</td><td>Subestima el resultado esperado.</td></tr>
+            <tr><td>Ilíquida</td><td>Puede mostrar utilidad razonable, pero caja débil o riesgo de sobregiro.</td></tr>
+            <tr><td>Incoherente</td><td>Contradice la lógica de la decisión o de los KPIs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">6. Guía breve por examen</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+        <div class="kpi-row"><span class="kpi-label">Marketing</span><span class="kpi-value">Ventas netas, margen neto, utilidad, caja, participación y riesgo.</span></div>
+        <div class="kpi-row"><span class="kpi-label">Innovación</span><span class="kpi-value">Costo unitario, utilidad, caja, ROI innovación, deuda y riesgo.</span></div>
+        <div class="kpi-row"><span class="kpi-label">Publicidad</span><span class="kpi-value">ROAS, saturación, utilidad, caja y riesgo.</span></div>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px">
+      <h3 style="margin:0 0 12px;font-size:1rem">7. Checklist antes de responder</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;color:var(--text2)">
+        ${[
+          '¿Estoy usando producción o unidades vendidas?',
+          '¿Estoy calculando ventas brutas o ventas netas?',
+          '¿Revisé utilidad y no sólo ventas?',
+          '¿Revisé caja?',
+          '¿Revisé deuda o sobregiro?',
+          '¿El KPI principal respalda la decisión?',
+          '¿Descarté opciones demasiado optimistas?',
+          '¿Descarté opciones ilíquidas?',
+          '¿Mi justificación usa números?',
+        ].map(x => `<div class="kpi-row"><span class="kpi-value">✓ ${x}</span></div>`).join('')}
+      </div>
+    </div>
+  `;
 }
 
 // ── Imprimir Hoja de Decisión ──────────────────────────────
