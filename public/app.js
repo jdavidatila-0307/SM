@@ -4292,12 +4292,22 @@ function buildGuiaExamen() {
     <div class="section-header">
       <div>
         <h2>📘 Guía para el Examen</h2>
-        <p>Referencia rápida para interpretar escenarios financieros y responder con criterio cuantitativo.</p>
+        <p>Guía práctica para razonar como el simulador: conectar decisiones, mercado, resultados financieros y riesgo.</p>
       </div>
     </div>
 
     <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:1rem">1. Cómo piensa el simulador</h3>
+      <h3 style="margin:0 0 12px;font-size:1rem">1. ¿Para qué sirve esta guía?</h3>
+      <p style="margin:0;color:var(--text2);line-height:1.55">
+        Esta guía no busca que memorices fórmulas. Su objetivo es ayudarte a razonar como el simulador:
+        una decisión comercial cambia la reacción del mercado, esa reacción afecta ventas reales, luego aparecen
+        costos, utilidad, caja, deuda y riesgo. En el examen, la mejor respuesta suele ser la más coherente,
+        no la más optimista.
+      </p>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">2. Cómo piensa el simulador</h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--text2);font-size:.88rem">
         ${['Decisión del estudiante','Reacción del mercado','Unidades vendidas','Ventas brutas','Ventas netas','Costos y gastos','Utilidad','Caja','Riesgo','Resultado del examen'].map((x, i, arr) => `
           <span class="badge">${x}</span>${i < arr.length - 1 ? '<span>→</span>' : ''}
@@ -4306,32 +4316,43 @@ function buildGuiaExamen() {
     </div>
 
     <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:1rem">2. Diferencias clave</h3>
+      <h3 style="margin:0 0 12px;font-size:1rem">3. Diferencias clave</h3>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Confusión común</th><th>Lectura correcta</th></tr></thead>
+          <thead><tr><th>Idea incorrecta</th><th>Lectura correcta</th></tr></thead>
           <tbody>
-            <tr><td>Producción</td><td>No es ventas; es la cantidad disponible para vender.</td></tr>
-            <tr><td>Unidades vendidas</td><td>No son necesariamente la producción total.</td></tr>
-            <tr><td>Ventas brutas</td><td>No son ventas netas; todavía faltan ajustes comerciales.</td></tr>
-            <tr><td>Utilidad</td><td>No es caja; puede haber utilidad y aun así tensión de liquidez.</td></tr>
-            <tr><td>Más ventas</td><td>No siempre significa más rentabilidad.</td></tr>
-            <tr><td>Más publicidad</td><td>No siempre significa más retorno.</td></tr>
+            <tr><td>Producción significa ventas automáticas</td><td>Producción sólo indica unidades disponibles.</td></tr>
+            <tr><td>Unidades vendidas son todo lo producido</td><td>Dependen de demanda, atractivo, precio, canal, inventario y competencia.</td></tr>
+            <tr><td>Ventas brutas son dinero final disponible</td><td>Aún faltan comisiones, descuentos, promociones u otros ajustes.</td></tr>
+            <tr><td>Ventas netas son precio × producción</td><td>Ventas netas parten de unidades vendidas y restan ajustes comerciales.</td></tr>
+            <tr><td>Utilidad es caja</td><td>Puede haber utilidad contable y poca liquidez.</td></tr>
+            <tr><td>Caja es utilidad</td><td>Caja depende de cobros, pagos, préstamos, deuda y salidas de efectivo.</td></tr>
+            <tr><td>Publicidad garantiza resultado</td><td>Puede saturarse o no convertir en ventas rentables.</td></tr>
+            <tr><td>Innovación garantiza mejora inmediata</td><td>Puede requerir inversión, deuda y tiempo antes de mejorar resultados.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
     <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:1rem">3. Ejemplo corregido: precio y producción</h3>
+      <h3 style="margin:0 0 12px;font-size:1rem">4. Error común: precio × producción no siempre es ventas netas</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px">
+        <div class="kpi-row"><span class="kpi-label">Precio</span><span class="kpi-value">Bs 135</span></div>
+        <div class="kpi-row"><span class="kpi-label">Producción</span><span class="kpi-value">1.300 unidades</span></div>
+      </div>
+      <p style="margin:0 0 10px;color:var(--text2)">Ventas potenciales máximas = 135 × 1.300 = <strong>Bs 175.500</strong>.</p>
+      <p style="margin:0 0 12px;color:var(--text3)">Ese cálculo es correcto, pero representa ventas potenciales máximas, no necesariamente ventas netas.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px">
         <div class="kpi-row"><span class="kpi-label">Precio</span><span class="kpi-value">Bs 135</span></div>
         <div class="kpi-row"><span class="kpi-label">Producción</span><span class="kpi-value">1.300 unidades</span></div>
         <div class="kpi-row"><span class="kpi-label">Unidades vendidas esperadas</span><span class="kpi-value">1.150</span></div>
       </div>
-      <p style="margin:0 0 10px;color:var(--text2)">Ventas potenciales = 135 × 1.300 = <strong>Bs 175.500</strong>.</p>
-      <p style="margin:0 0 12px;color:var(--text3)">Eso no es ventas netas. Es el máximo teórico si se vendiera todo lo producido.</p>
       <p style="margin:0 0 12px;color:var(--text2)">Ventas brutas = 135 × 1.150 = <strong>Bs 155.250</strong>.</p>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">5. Corrección obligatoria sobre ajustes Bs 17.250</h3>
+      <p style="margin:0 0 12px;color:var(--text2)">Ventas brutas = <strong>Bs 155.250</strong>. Los ajustes no deben tratarse como un número suelto; se desglosan así:</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Ajuste</th><th class="num">Cálculo</th><th class="num">Monto</th></tr></thead>
@@ -4348,24 +4369,47 @@ function buildGuiaExamen() {
     </div>
 
     <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:1rem">4. Fórmulas básicas</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px">
-        ${[
-          'Ventas potenciales = precio × producción',
-          'Ventas brutas = precio × unidades vendidas',
-          'Ventas netas = ventas brutas - ajustes',
-          'Utilidad neta = ventas netas - costos - gastos',
-          'Margen neto = utilidad neta / ventas netas',
-          'Caja final = caja inicial + entradas - salidas',
-          'ROI = utilidad generada / inversión',
-          'ROAS = ventas atribuibles / gasto publicitario',
-        ].map(f => `<div class="kpi-row"><span class="kpi-value">${f}</span></div>`).join('')}
+      <h3 style="margin:0 0 12px;font-size:1rem">6. Fórmulas básicas explicadas</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fórmula</th><th>Qué significa</th><th>Ejemplo corto</th></tr></thead>
+          <tbody>
+            <tr><td>Ventas potenciales = precio × producción</td><td>Máximo teórico si se vende todo lo producido.</td><td>135 × 1.300 = Bs 175.500</td></tr>
+            <tr><td>Ventas brutas = precio × unidades vendidas</td><td>Ingreso antes de ajustes comerciales.</td><td>135 × 1.150 = Bs 155.250</td></tr>
+            <tr><td>Ventas netas = ventas brutas - ajustes comerciales</td><td>Ingreso comercial después de restar ajustes.</td><td>155.250 - 17.250 = Bs 138.000</td></tr>
+            <tr><td>Utilidad neta = ventas netas - costos - gastos</td><td>Resultado final después de costos y gastos.</td><td>138.000 - 112.000 = Bs 26.000</td></tr>
+            <tr><td>Margen neto = utilidad neta / ventas netas</td><td>Qué porcentaje de ventas queda como utilidad.</td><td>26.000 / 138.000 = 18,8%</td></tr>
+            <tr><td>Caja final = caja inicial + entradas - salidas</td><td>Liquidez disponible al cierre.</td><td>20.000 + 138.000 - 130.000 = Bs 28.000</td></tr>
+            <tr><td>ROI = utilidad generada / inversión realizada</td><td>Retorno de una inversión.</td><td>9.000 / 30.000 = 30%</td></tr>
+            <tr><td>ROAS = ventas atribuibles / gasto publicitario</td><td>Retorno comercial del gasto en publicidad.</td><td>42.000 / 21.000 = 2,0</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:1rem">5. Cómo responder selección múltiple financiera</h3>
-      <p style="margin:0 0 12px;color:var(--text2)">La respuesta correcta no siempre es la de mayor venta. Revisa ventas netas, utilidad neta, caja final, KPI principal, riesgo y coherencia con la decisión.</p>
+      <h3 style="margin:0 0 12px;font-size:1rem">7. Método para resolver preguntas financieras</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="num">Paso</th><th>Acción</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td>Leer qué decisión se modificó.</td></tr>
+            <tr><td class="num">2</td><td>Identificar si afecta ventas, costos, caja, deuda o riesgo.</td></tr>
+            <tr><td class="num">3</td><td>Separar producción de unidades vendidas.</td></tr>
+            <tr><td class="num">4</td><td>Revisar ventas netas, no sólo ventas potenciales.</td></tr>
+            <tr><td class="num">5</td><td>Revisar utilidad neta.</td></tr>
+            <tr><td class="num">6</td><td>Revisar caja final.</td></tr>
+            <tr><td class="num">7</td><td>Revisar KPI principal.</td></tr>
+            <tr><td class="num">8</td><td>Descartar opciones extremas.</td></tr>
+            <tr><td class="num">9</td><td>Elegir la opción más coherente.</td></tr>
+            <tr><td class="num">10</td><td>Justificar usando números.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">8. Tipos de opciones en selección múltiple</h3>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Tipo de opción</th><th>Cómo reconocerla</th></tr></thead>
@@ -4381,16 +4425,73 @@ function buildGuiaExamen() {
     </div>
 
     <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:1rem">6. Guía breve por examen</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
-        <div class="kpi-row"><span class="kpi-label">Marketing</span><span class="kpi-value">Ventas netas, margen neto, utilidad, caja, participación y riesgo.</span></div>
-        <div class="kpi-row"><span class="kpi-label">Innovación</span><span class="kpi-value">Costo unitario, utilidad, caja, ROI innovación, deuda y riesgo.</span></div>
-        <div class="kpi-row"><span class="kpi-label">Publicidad</span><span class="kpi-value">ROAS, saturación, utilidad, caja y riesgo.</span></div>
+      <h3 style="margin:0 0 12px;font-size:1rem">9. Guía para el Examen de Marketing</h3>
+      <p style="margin:0 0 12px;color:var(--text2)">Evalúa coherencia entre producto, segmento, precio, canal, mix promocional, ventas, margen, caja, participación y riesgo.</p>
+      <p style="margin:0 0 12px;color:var(--text2)">Ejemplo: precio Bs 135, producción 1.300, unidades vendidas 1.150, ventas netas Bs 138.000.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opción</th><th class="num">Ventas netas</th><th class="num">Utilidad</th><th class="num">Caja</th><th class="num">Margen</th><th>Diagnóstico</th></tr></thead>
+          <tbody>
+            <tr><td>A</td><td class="num">Bs 175.500</td><td class="num">Bs 42.000</td><td class="num">Bs 55.000</td><td class="num">23,9%</td><td>Confunde ventas potenciales con ventas netas.</td></tr>
+            <tr><td><strong>B</strong></td><td class="num"><strong>Bs 138.000</strong></td><td class="num"><strong>Bs 26.000</strong></td><td class="num"><strong>Bs 28.000</strong></td><td class="num"><strong>18,8%</strong></td><td><strong>Coherente con unidades vendidas y ajustes.</strong></td></tr>
+            <tr><td>C</td><td class="num">Bs 155.250</td><td class="num">Bs 35.000</td><td class="num">Bs 40.000</td><td class="num">22,5%</td><td>Usa ventas brutas y olvida ajustes.</td></tr>
+            <tr><td>D</td><td class="num">Bs 118.000</td><td class="num">Bs 8.000</td><td class="num">Bs 3.000</td><td class="num">6,8%</td><td>Demasiado pesimista para el escenario.</td></tr>
+            <tr><td>E</td><td class="num">Bs 138.000</td><td class="num">Bs 55.000</td><td class="num">Bs -4.000</td><td class="num">39,9%</td><td>Incoherente: margen muy alto y caja negativa sin explicación.</td></tr>
+          </tbody>
+        </table>
       </div>
+      <p style="margin:12px 0 0;color:var(--text2)"><strong>Respuesta correcta: B.</strong> A confunde producción con ventas netas; C olvida ajustes; D subestima el resultado; E mezcla indicadores contradictorios.</p>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">10. Guía para el Examen de Innovación</h3>
+      <p style="margin:0 0 12px;color:var(--text2)">Evalúa si una innovación mejora costos, productividad, utilidad, caja y riesgo financiero sin confundir inversión con resultado inmediato.</p>
+      <p style="margin:0 0 12px;color:var(--text2)">Ejemplo: innovación de proceso, inversión Bs 30.000, producción 1.500 unidades, préstamo Bs 20.000.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opción</th><th class="num">Costo unitario</th><th class="num">Utilidad</th><th class="num">Caja</th><th class="num">ROI innovación</th><th>Diagnóstico</th></tr></thead>
+          <tbody>
+            <tr><td>A</td><td class="num">Bs 72</td><td class="num">Bs 18.000</td><td class="num">Bs 45.000</td><td class="num">60%</td><td>Optimista: ignora salida fuerte de caja.</td></tr>
+            <tr><td><strong>B</strong></td><td class="num"><strong>Bs 78</strong></td><td class="num"><strong>Bs 9.000</strong></td><td class="num"><strong>Bs 12.000</strong></td><td class="num"><strong>30%</strong></td><td><strong>Mejora costos, pero reconoce inversión y deuda.</strong></td></tr>
+            <tr><td>C</td><td class="num">Bs 95</td><td class="num">Bs -6.000</td><td class="num">Bs 2.000</td><td class="num">-20%</td><td>Pesimista: no reconoce eficiencia de proceso.</td></tr>
+            <tr><td>D</td><td class="num">Bs 78</td><td class="num">Bs 10.000</td><td class="num">Bs -8.000</td><td class="num">33%</td><td>Ilíquida: puede haber utilidad, pero caja crítica.</td></tr>
+            <tr><td>E</td><td class="num">Bs 60</td><td class="num">Bs 40.000</td><td class="num">Bs -20.000</td><td class="num">133%</td><td>Incoherente: beneficios extremos con caja deteriorada.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin:12px 0 0;color:var(--text2)"><strong>Respuesta correcta: B.</strong> A exagera el retorno; C ignora la mejora de costos; D muestra tensión de liquidez; E contradice la escala de la inversión.</p>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">11. Guía para el Examen de Publicidad</h3>
+      <p style="margin:0 0 12px;color:var(--text2)">Evalúa asignación eficiente del presupuesto, saturación, retorno comercial, utilidad, caja y riesgo.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px">
+        <div class="kpi-row"><span class="kpi-label">Publicidad</span><span class="kpi-value">Bs 8.000</span></div>
+        <div class="kpi-row"><span class="kpi-label">Promoción</span><span class="kpi-value">Bs 4.000</span></div>
+        <div class="kpi-row"><span class="kpi-label">Eventos</span><span class="kpi-value">Bs 2.000</span></div>
+        <div class="kpi-row"><span class="kpi-label">Marketing redes</span><span class="kpi-value">Bs 6.000</span></div>
+        <div class="kpi-row"><span class="kpi-label">Relaciones públicas</span><span class="kpi-value">Bs 1.000</span></div>
+        <div class="kpi-row"><span class="kpi-label">Precio</span><span class="kpi-value">Bs 120</span></div>
+        <div class="kpi-row"><span class="kpi-label">Producción</span><span class="kpi-value">1.200 unidades</span></div>
+        <div class="kpi-row"><span class="kpi-label">Gasto total comunicación</span><span class="kpi-value">Bs 21.000</span></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opción</th><th class="num">Ventas atribuibles</th><th class="num">Utilidad</th><th class="num">Caja</th><th class="num">ROAS</th><th class="num">Saturación</th><th>Diagnóstico</th></tr></thead>
+          <tbody>
+            <tr><td>A</td><td class="num">Bs 75.000</td><td class="num">Bs 24.000</td><td class="num">Bs 38.000</td><td class="num">3,6</td><td class="num">0,20</td><td>Optimista: retorno alto con saturación demasiado baja.</td></tr>
+            <tr><td><strong>B</strong></td><td class="num"><strong>Bs 42.000</strong></td><td class="num"><strong>Bs 11.000</strong></td><td class="num"><strong>Bs 18.000</strong></td><td class="num"><strong>2,0</strong></td><td class="num"><strong>0,62</strong></td><td><strong>Coherente con gasto y retorno razonable.</strong></td></tr>
+            <tr><td>C</td><td class="num">Bs 20.000</td><td class="num">Bs -2.000</td><td class="num">Bs 7.000</td><td class="num">1,0</td><td class="num">0,50</td><td>Pesimista para el gasto realizado.</td></tr>
+            <tr><td>D</td><td class="num">Bs 44.000</td><td class="num">Bs 10.000</td><td class="num">Bs -6.000</td><td class="num">2,1</td><td class="num">0,63</td><td>Ilíquida: resultado comercial razonable con caja débil.</td></tr>
+            <tr><td>E</td><td class="num">Bs 95.000</td><td class="num">Bs -12.000</td><td class="num">Bs 50.000</td><td class="num">4,5</td><td class="num">0,98</td><td>Incoherente: ROAS extremo con saturación casi total y pérdida.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin:12px 0 0;color:var(--text2)"><strong>Respuesta correcta: B.</strong> A sobreestima; C subestima; D advierte iliquidez; E contradice retorno, saturación y utilidad.</p>
     </div>
 
     <div class="result-round-card" style="padding:18px 22px">
-      <h3 style="margin:0 0 12px;font-size:1rem">7. Checklist antes de responder</h3>
+      <h3 style="margin:0 0 12px;font-size:1rem">12. Checklist antes de responder</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;color:var(--text2)">
         ${[
           '¿Estoy usando producción o unidades vendidas?',
@@ -4399,10 +4500,40 @@ function buildGuiaExamen() {
           '¿Revisé caja?',
           '¿Revisé deuda o sobregiro?',
           '¿El KPI principal respalda la decisión?',
+          '¿La opción elegida es coherente con segmento, precio y gasto?',
           '¿Descarté opciones demasiado optimistas?',
           '¿Descarté opciones ilíquidas?',
           '¿Mi justificación usa números?',
         ].map(x => `<div class="kpi-row"><span class="kpi-value">✓ ${x}</span></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="result-round-card" style="padding:18px 22px;margin-top:16px">
+      <h3 style="margin:0 0 12px;font-size:1rem">13. Glosario claro</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Concepto</th><th>Definición breve</th></tr></thead>
+          <tbody>
+            <tr><td>Producción</td><td>Unidades fabricadas o disponibles para vender.</td></tr>
+            <tr><td>Unidades vendidas</td><td>Cantidad efectivamente comprada por el mercado.</td></tr>
+            <tr><td>Demanda</td><td>Interés potencial del mercado por comprar.</td></tr>
+            <tr><td>Inventario</td><td>Producto producido que no se vendió.</td></tr>
+            <tr><td>Ventas brutas</td><td>Precio por unidades vendidas antes de ajustes.</td></tr>
+            <tr><td>Ventas netas</td><td>Ventas brutas menos ajustes comerciales.</td></tr>
+            <tr><td>Utilidad neta</td><td>Resultado después de costos y gastos.</td></tr>
+            <tr><td>Caja final</td><td>Liquidez disponible al cierre del periodo.</td></tr>
+            <tr><td>Margen neto</td><td>Utilidad neta dividida entre ventas netas.</td></tr>
+            <tr><td>Participación</td><td>Porción de mercado capturada por el equipo.</td></tr>
+            <tr><td>ROI</td><td>Retorno sobre una inversión realizada.</td></tr>
+            <tr><td>ROAS</td><td>Retorno de ventas atribuibles sobre gasto publicitario.</td></tr>
+            <tr><td>Saturación</td><td>Pérdida de eficiencia por exceso de gasto en un canal.</td></tr>
+            <tr><td>Riesgo financiero</td><td>Posibilidad de pérdida, baja liquidez, deuda alta o sobregiro.</td></tr>
+            <tr><td>Escenario optimista</td><td>Sobreestima resultados favorables.</td></tr>
+            <tr><td>Escenario pesimista</td><td>Subestima resultados esperados.</td></tr>
+            <tr><td>Escenario ilíquido</td><td>Puede tener utilidad, pero muestra caja débil.</td></tr>
+            <tr><td>Escenario incoherente</td><td>Combina indicadores que no tienen lógica entre sí.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   `;
